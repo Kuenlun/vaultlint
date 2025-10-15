@@ -3,4 +3,5 @@
 
 def main():
     """Entry point for the vaultlint command."""
-    print("vaultlint ready.")
+    print("vaultlint ready")
+    return 0
