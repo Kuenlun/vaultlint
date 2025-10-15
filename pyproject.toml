@@ -1,0 +1,19 @@
+[project]
+name = "vaultlint"
+dynamic = ["version"]
+description = "A modular linter for Obsidian that validates Markdown, YAML front matter, and vault structure"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[project.scripts]
+vaultlint = "vaultlint.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "vaultlint.__version__"}
