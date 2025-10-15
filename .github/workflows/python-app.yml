@@ -77,6 +77,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pytest
           if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+          python -m pip install -e .
       - name: Run tests
         shell: bash
         run: python -m pytest -q --junitxml=pytest-junit.xml
