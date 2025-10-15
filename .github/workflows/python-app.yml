@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: read
-  checks: write # let us publish JUnit to the Checks tab
+  checks: write
   pull-requests: write
 
 concurrency:
@@ -21,22 +21,18 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python (lint only)
+      - name: Set up Python (lint)
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           check-latest: true
           cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
-            pyproject.toml
-            setup.cfg
+          cache-dependency-path: pyproject.toml
       - name: Install lint deps
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "flake8"    # pin if your project needs it, e.g. flake8==7.*
+          python -m pip install flake8
           if [ -f requirements-dev.txt ]; then python -m pip install -r requirements-dev.txt; fi
       - name: Lint with flake8
         shell: bash
@@ -54,7 +50,7 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
         include:
           - os: ubuntu-latest
-            python-version: "3.14" # allow failures on newest
+            python-version: "3.14"
             experimental: true
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental || false }}
@@ -66,15 +62,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           check-latest: true
           cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
-            pyproject.toml
-            setup.cfg
+          cache-dependency-path: pyproject.toml
       - name: Install test deps
         shell: bash
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip setuptools wheel
           python -m pip install pytest
           if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
           python -m pip install -e .
@@ -83,9 +75,12 @@ jobs:
         run: python -m pytest -q --junitxml=pytest-junit.xml
       - name: Publish test report
         if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: mikepenz/action-junit-report@v4
         with:
-          files: pytest-junit.xml
+          report_paths: pytest-junit.xml
+          check_name: Test Report
+          detailed_summary: true
+          include_passed: true
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
