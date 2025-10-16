@@ -69,7 +69,7 @@ def _configure_logging(verbosity: int) -> None:
         try:
             handler = logging.StreamHandler()
             handler.setFormatter(
-                logging.Formatter("%(levelname)s: %(message)s", encoding="utf-8")
+                logging.Formatter("%(levelname)s: %(message)s")
             )
             pkg_logger.addHandler(handler)
             # Prevent duplicate emission if a root handler is configured later.
