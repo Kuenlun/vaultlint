@@ -186,7 +186,7 @@ class Issue:
 def _rel(base: Path, p: Path) -> Path:
     try:
         return p.relative_to(base)
-    except Exception:
+    except ValueError:
         return p
 
 
