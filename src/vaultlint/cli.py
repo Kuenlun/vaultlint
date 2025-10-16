@@ -88,8 +88,8 @@ def validate_vault_path(path: Path) -> bool:
         # First do basic path expansion
         expanded = path.expanduser()
 
-        # Check for potential path traversal by comparing normalized paths
-        if ".." in str(expanded.resolve(strict=False).parts):
+        # Check for potential path traversal in the original (expanded) path
+        if any(part == ".." for part in expanded.parts):
             LOG.error("Suspicious path traversal attempt detected in '%s'", path)
             return False
 
