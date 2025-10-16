@@ -100,10 +100,18 @@ def validate_vault_path(path: Path) -> bool:
         # Check if the resolved path is a subdirectory of the expanded path's parent
         try:
             expanded_parent = expanded.parent.resolve()
-            if not str(resolved).startswith(str(expanded_parent)):
+            try:
+                # Use is_relative_to if available (Python 3.9+), else fallback to relative_to
+                if hasattr(resolved, "is_relative_to"):
+                    if not resolved.is_relative_to(expanded_parent):
+                        LOG.error("Path '%s' resolves outside its parent directory", path)
+                        return False
+                else:
+                    resolved.relative_to(expanded_parent)
+            except ValueError:
                 LOG.error("Path '%s' resolves outside its parent directory", path)
                 return False
-        except Exception:
+        except (OSError, ValueError):
             # If we can't resolve the parent, we can't validate containment
             LOG.error("Could not validate path containment for '%s'", path)
             return False
@@ -111,7 +119,7 @@ def validate_vault_path(path: Path) -> bool:
     except FileNotFoundError:
         LOG.error("The path '%s' does not exist", path)
         return False
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         LOG.error("Could not resolve '%s': %s", path, exc)
         return False
 
