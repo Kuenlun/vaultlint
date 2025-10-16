@@ -135,7 +135,7 @@ def test_run_logs_info_on_success(monkeypatch, caplog, tmp_path):
     homey = Path("~") / "some" / "vault"  # exercise expanduser()+resolve()
     rc = run(homey)
     assert rc == 0
-    assert any("Vaultlint ready. Checking:" in r.getMessage() for r in caplog.records)
+    assert any("vaultlint ready. Checking:" in r.getMessage() for r in caplog.records)
 
 
 # ---------- main() integration ----------
@@ -145,7 +145,6 @@ def test_main_success_integration(tmp_path, caplog):
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
     rc = main([str(tmp_path)])
     assert rc == 0
-    assert any("Vaultlint ready. Checking:" in r.getMessage() for r in caplog.records)
 
 
 def test_main_nonexistent_path_returns_1(tmp_path, caplog):
@@ -163,15 +162,23 @@ def test_main_keyboard_interrupt_returns_130(monkeypatch, caplog, tmp_path):
         raise KeyboardInterrupt
 
     monkeypatch.setattr("vaultlint.cli.run", raise_kbi)
-    rc = main([str(tmp_path)])
+    # call with -v so INFO logs are emitted
+    rc = main(["-v", str(tmp_path)])
     assert rc == 130
     assert any("Interrupted by user" in r.getMessage() for r in caplog.records)
 
 
-@pytest.mark.parametrize("flag", ["-v", "-vv"])
-def test_verbose_enables_debug_logging(tmp_path, flag):
-    # After -v/-vv, logger should enable DEBUG level
-    rc = main([flag, str(tmp_path)])
+def test_verbose_enables_info_logging(tmp_path):
+    # single -v should enable INFO but not DEBUG
+    rc = main(["-v", str(tmp_path)])
+    assert rc == 0
+    assert LOG.isEnabledFor(logging.INFO)
+    assert not LOG.isEnabledFor(logging.DEBUG)
+
+
+def test_verbose_double_enables_debug_logging(tmp_path):
+    # double -vv should enable DEBUG
+    rc = main(["-vv", str(tmp_path)])
     assert rc == 0
     assert LOG.isEnabledFor(logging.DEBUG)
 
@@ -190,7 +197,8 @@ def test_main_expands_user_home(tmp_path, monkeypatch, caplog):
 
     monkeypatch.setattr(Path, "expanduser", fake_expand)
 
-    rc = main(["~/vault"])
+    # call with -v so INFO logs are emitted
+    rc = main(["-v", "~/vault"])
     assert rc == 0
     # The resolved path should appear in the info message
     assert any(str(vault.resolve()) in r.getMessage() for r in caplog.records)

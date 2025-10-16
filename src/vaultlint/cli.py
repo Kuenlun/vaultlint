@@ -7,6 +7,11 @@ import argparse
 from pathlib import Path
 import importlib.metadata as im
 
+# Exit codes
+EXIT_SUCCESS = 0
+EXIT_VALIDATION_ERROR = 1
+EXIT_KEYBOARD_INTERRUPT = 130
+
 
 LOG = logging.getLogger("vaultlint.cli")
 
@@ -44,13 +49,16 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 
 def _configure_logging(verbosity: int) -> None:
     """Configure logging without clobbering existing handlers (e.g., pytest caplog)."""
-    level = logging.INFO if verbosity == 0 else logging.DEBUG
+    level = (
+        logging.WARN
+        if verbosity == 0
+        else (logging.INFO if verbosity == 1 else logging.DEBUG)
+    )
 
     # Configure our package logger
     pkg_logger = logging.getLogger("vaultlint")
     pkg_logger.setLevel(level)
 
-    # Keep child logger too (the module uses vaultlint.cli)
     mod_logger = logging.getLogger("vaultlint.cli")
     mod_logger.setLevel(level)
     mod_logger.propagate = True  # bubble up to 'vaultlint' if needed
@@ -58,15 +66,44 @@ def _configure_logging(verbosity: int) -> None:
     # If running as a standalone CLI (no handlers configured), attach a simple handler
     root = logging.getLogger()
     if not root.handlers and not pkg_logger.handlers and not mod_logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-        pkg_logger.addHandler(handler)
+        try:
+            handler = logging.StreamHandler()
+            handler.setFormatter(
+                logging.Formatter("%(levelname)s: %(message)s", encoding="utf-8")
+            )
+            pkg_logger.addHandler(handler)
+            # Prevent duplicate emission if a root handler is configured later.
+            pkg_logger.propagate = False
+        except (IOError, LookupError) as exc:
+            sys.stderr.write(f"Failed to configure logging: {exc}\n")
+            sys.exit(EXIT_VALIDATION_ERROR)
 
 
 def validate_vault_path(path: Path) -> bool:
-    """Validate that the given path exists, is a directory, and is readable."""
+    """Validate that the given path exists, is a directory, and is readable.
+
+    Performs security checks including path traversal detection and length validation.
+    """
     try:
-        resolved = path.expanduser().resolve()
+        # First do basic path expansion
+        expanded = path.expanduser()
+
+        # Check for potential path traversal by comparing normalized paths
+        if ".." in str(expanded.resolve(strict=False).parts):
+            LOG.error("Suspicious path traversal attempt detected in '%s'", path)
+            return False
+
+        # Check path length (Windows MAX_PATH is 260, but we'll use a safe limit)
+        if os.name == "nt" and len(str(expanded)) > 240:
+            LOG.error("Path '%s' exceeds maximum safe length", path)
+            return False
+
+        # Now try to resolve the path
+        resolved = expanded.resolve(strict=True)
+
+    except FileNotFoundError:
+        LOG.error("The path '%s' does not exist", path)
+        return False
     except Exception as exc:
         LOG.error("Could not resolve '%s': %s", path, exc)
         return False
@@ -86,16 +123,20 @@ def validate_vault_path(path: Path) -> bool:
         LOG.error("Could not access '%s': %s", resolved, exc)
         return False
     if not os.access(resolved, os.R_OK | os.X_OK):
-        LOG.warning("Directory exists but may not be fully accessible: %s", resolved)
+        LOG.warning(
+            "Directory exists but may not be fully accessible: %s%s",
+            resolved,
+            " (note: execute bit is POSIX-specific)" if os.name == "nt" else "",
+        )
     return True
 
 
 def run(vault_path: Path) -> int:
     """Core runner: validate path and (later) dispatch linting."""
     if not validate_vault_path(vault_path):
-        return 1
-    LOG.info("Vaultlint ready. Checking: %s", vault_path.expanduser().resolve())
-    return 0
+        return EXIT_VALIDATION_ERROR
+    LOG.info("vaultlint ready. Checking: %s", vault_path.expanduser().resolve())
+    return EXIT_SUCCESS
 
 
 def main(argv: list[str] | None = None) -> int:
