@@ -12,6 +12,9 @@ EXIT_SUCCESS = 0
 EXIT_VALIDATION_ERROR = 1
 EXIT_KEYBOARD_INTERRUPT = 130
 
+# Windows path length constants
+WINDOWS_MAX_SAFE_PATH_LENGTH = 240  # Safe limit under Windows MAX_PATH of 260
+
 
 LOG = logging.getLogger("vaultlint.cli")
 
@@ -94,7 +97,7 @@ def validate_vault_path(path: Path) -> bool:
             return False
 
         # Check path length (Windows MAX_PATH is 260, but we'll use a safe limit)
-        if os.name == "nt" and len(str(expanded)) > 240:
+        if os.name == "nt" and len(str(expanded)) > WINDOWS_MAX_SAFE_PATH_LENGTH:
             LOG.error("Path '%s' exceeds maximum safe length", path)
             return False
 
