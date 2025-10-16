@@ -106,7 +106,7 @@ def _configure_logging(verbosity: int) -> None:
 def validate_vault_path(path: Path) -> bool:
     """Validate that the given path exists, is a directory, and is readable.
 
-    Performs security checks including path traversal detection and length validation.
+    Performs basic security checks including path length validation.
     """
     try:
         # First do basic path expansion
@@ -119,29 +119,6 @@ def validate_vault_path(path: Path) -> bool:
 
         # Resolve the path
         resolved = expanded.resolve(strict=True)
-
-        # Check if the resolved path is a subdirectory of the expanded path's parent
-        try:
-            expanded_resolved = expanded.resolve()
-            # Use is_relative_to if available (Python 3.9+), else fallback to relative_to
-            if sys.version_info >= PYTHON_VERSION_WITH_IS_RELATIVE_TO:
-                if not resolved.is_relative_to(expanded_resolved):
-                    LOG.error(
-                        "Path '%s' resolves outside the specified vault directory", path
-                    )
-                    return False
-            else:
-                try:
-                    resolved.relative_to(expanded_resolved)
-                except ValueError:
-                    LOG.error(
-                        "Path '%s' resolves outside the specified vault directory", path
-                    )
-                    return False
-        except (OSError, ValueError):
-            # If we can't resolve the parent, we can't validate containment
-            LOG.error("Could not validate path containment for '%s'", path)
-            return False
 
     except FileNotFoundError:
         LOG.error("The path '%s' does not exist", path)

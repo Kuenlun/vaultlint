@@ -69,18 +69,27 @@ def test_validate_vault_path_warns_when_os_access_fails(tmp_path, caplog, monkey
 
 
 def test_validate_vault_path_with_traversal(tmp_path, caplog):
-    """Test path traversal attempt detection."""
+    """Test that path traversal to existing directories works correctly.
+
+    Note: This function no longer prevents path traversal - it simply validates
+    that the resolved path exists and is accessible. Path traversal prevention
+    is not needed for a CLI tool where users specify vault directories.
+    """
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
-    # Create a parent directory and a target to ensure the path exists
+
+    # Test 1: Navigate to parent directory using ".."
     parent = tmp_path.parent
-    malicious = tmp_path / ".." / parent.name
-    ok = validate_vault_path(malicious)
-    assert ok is False
-    # Check for either traversal detection or non-existent path error
-    assert any(
-        any(msg in r.getMessage().lower() for msg in ["traversal", "does not exist"])
-        for r in caplog.records
-    )
+    traversal_to_parent = tmp_path / ".."
+
+    # This should succeed because it resolves to the parent directory which exists
+    ok = validate_vault_path(traversal_to_parent)
+    assert ok is True  # Parent directory should exist and be accessible
+
+    # Test 2: Create a non-existent traversal path
+    nonexistent_traversal = tmp_path / ".." / "nonexistent_directory_12345"
+    ok_nonexistent = validate_vault_path(nonexistent_traversal)
+    assert ok_nonexistent is False
+    assert any("does not exist" in r.getMessage() for r in caplog.records)
 
 
 def test_validate_vault_path_unicode(tmp_path, caplog):
@@ -120,3 +129,36 @@ def test_validate_vault_path_symlink(tmp_path, caplog):
     ok = validate_vault_path(symlink)
     # Should succeed since it's a valid symlink
     assert ok is True
+
+
+def test_path_traversal_behavior_documentation(tmp_path):
+    """Regression test to document path traversal behavior.
+
+    This test exists to prevent accidental re-introduction of broken
+    path traversal validation logic. The validate_vault_path function
+    should NOT attempt to prevent path traversal - it should simply
+    validate that the resolved path exists and is accessible.
+
+    If someone tries to add path traversal validation in the future,
+    this test will help ensure it's implemented correctly.
+    """
+    from vaultlint.cli import validate_vault_path
+
+    # Create a test scenario
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+
+    # Path that traverses up and then down - should work if target exists
+    traversal_path = subdir / ".." / "subdir"  # Points back to subdir
+
+    # This should succeed because it resolves to an existing directory
+    result = validate_vault_path(traversal_path)
+    assert result is True  # Should pass validation
+
+    # Verify it actually resolves to the same directory
+    assert traversal_path.resolve() == subdir.resolve()
+
+    # A path that traverses to non-existent location should fail
+    bad_traversal = subdir / ".." / "nonexistent"
+    result_bad = validate_vault_path(bad_traversal)
+    assert result_bad is False  # Should fail because directory doesn't exist
