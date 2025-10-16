@@ -147,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
         return run(args.path)
     except KeyboardInterrupt:
         LOG.error("Interrupted by user")
-        return 130
+        return EXIT_KEYBOARD_INTERRUPT
 
 
 if __name__ == "__main__":
