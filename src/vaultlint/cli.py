@@ -104,10 +104,18 @@ def validate_vault_path(path: Path) -> bool:
                 # Use is_relative_to if available (Python 3.9+), else fallback to relative_to
                 if hasattr(resolved, "is_relative_to"):
                     if not resolved.is_relative_to(expanded_parent):
-                        LOG.error("Path '%s' resolves outside its parent directory", path)
+                        LOG.error(
+                            "Path '%s' resolves outside its parent directory", path
+                        )
                         return False
                 else:
-                    resolved.relative_to(expanded_parent)
+                    try:
+                        resolved.relative_to(expanded_parent)
+                    except ValueError:
+                        LOG.error(
+                            "Path '%s' resolves outside its parent directory", path
+                        )
+                        return False
             except ValueError:
                 LOG.error("Path '%s' resolves outside its parent directory", path)
                 return False
@@ -134,11 +142,11 @@ def validate_vault_path(path: Path) -> bool:
     except OSError as exc:
         LOG.error("Could not access '%s': %s", resolved, exc)
         return False
-    if not os.access(resolved, os.R_OK | os.X_OK):
+    access_check = os.R_OK if os.name == "nt" else (os.R_OK | os.X_OK)
+    if not os.access(resolved, access_check):
         LOG.warning(
-            "Directory exists but may not be fully accessible: %s%s",
+            "Directory exists but may not be fully accessible: %s",
             resolved,
-            " (note: execute bit is POSIX-specific)" if os.name == "nt" else "",
         )
     return True
 
