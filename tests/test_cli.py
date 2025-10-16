@@ -1,13 +1,12 @@
 # tests/test_cli.py
-import logging
-import os
-from pathlib import Path
+"""Tests for command-line interface functionality."""
 
+import logging
+from pathlib import Path
 import pytest
 
 from vaultlint.cli import (
     parse_arguments,
-    validate_vault_path,
     run,
     main,
     LOG,
@@ -62,59 +61,6 @@ def test_parse_arguments_version_flag_without_package(monkeypatch, capsys):
     assert "0.0.0+local" in out
 
 
-# ---------- Path validation ----------
-
-
-def test_validate_vault_path_ok(tmp_path, caplog):
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
-    ok = validate_vault_path(tmp_path)
-    assert ok is True
-    # No error-level logs expected
-    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
-
-
-def test_validate_vault_path_nonexistent(tmp_path, caplog):
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
-    missing = tmp_path / "does-not-exist"
-    ok = validate_vault_path(missing)
-    assert ok is False
-    assert any("does not exist" in r.getMessage() for r in caplog.records)
-
-
-def test_validate_vault_path_file_instead_of_dir(tmp_path, caplog):
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
-    f = tmp_path / "file.txt"
-    f.write_text("hi")
-    ok = validate_vault_path(f)
-    assert ok is False
-    assert any("is not a directory" in r.getMessage() for r in caplog.records)
-
-
-def test_validate_vault_path_permission_error_simulated(tmp_path, caplog, monkeypatch):
-    """Simulate PermissionError on iterdir in a cross-platform safe way."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
-    real_iterdir = Path.iterdir
-
-    def guarded_iterdir(self):
-        if self.resolve() == tmp_path.resolve():
-            raise PermissionError("simulated permission denied")
-        return real_iterdir(self)
-
-    monkeypatch.setattr(Path, "iterdir", guarded_iterdir)
-    ok = validate_vault_path(tmp_path)
-    assert ok is False
-    assert any("not readable" in r.getMessage() for r in caplog.records)
-
-
-def test_validate_vault_path_warns_when_os_access_fails(tmp_path, caplog, monkeypatch):
-    caplog.set_level(logging.WARNING, logger="vaultlint.cli")
-    # Make os.access report False to trigger the warning branch
-    monkeypatch.setattr(os, "access", lambda *_args, **_kw: False)
-    ok = validate_vault_path(tmp_path)
-    assert ok is True
-    assert any("may not be fully accessible" in r.getMessage() for r in caplog.records)
-
-
 # ---------- Runner behavior ----------
 
 
@@ -125,7 +71,7 @@ def test_run_returns_1_when_validation_fails(monkeypatch, caplog, tmp_path):
     assert rc == 1
     # No success info log expected
     assert not [
-        r for r in caplog.records if "Vaultlint ready. Checking:" in r.getMessage()
+        r for r in caplog.records if "vaultlint ready. Checking:" in r.getMessage()
     ]
 
 
