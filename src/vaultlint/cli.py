@@ -50,7 +50,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 def _configure_logging(verbosity: int) -> None:
     """Configure logging without clobbering existing handlers (e.g., pytest caplog)."""
     level = (
-        logging.WARN
+        logging.WARNING
         if verbosity == 0
         else (logging.INFO if verbosity == 1 else logging.DEBUG)
     )
