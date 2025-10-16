@@ -71,9 +71,7 @@ def _configure_logging(verbosity: int) -> None:
     if not root.handlers and not pkg_logger.handlers and not mod_logger.handlers:
         try:
             handler = logging.StreamHandler()
-            handler.setFormatter(
-                logging.Formatter("%(levelname)s: %(message)s")
-            )
+            handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
             pkg_logger.addHandler(handler)
             # Prevent duplicate emission if a root handler is configured later.
             pkg_logger.propagate = False
@@ -91,18 +89,24 @@ def validate_vault_path(path: Path) -> bool:
         # First do basic path expansion
         expanded = path.expanduser()
 
-        # Check for potential path traversal in the original (expanded) path
-        if any(part == ".." for part in expanded.parts):
-            LOG.error("Suspicious path traversal attempt detected in '%s'", path)
-            return False
-
         # Check path length (Windows MAX_PATH is 260, but we'll use a safe limit)
         if os.name == "nt" and len(str(expanded)) > WINDOWS_MAX_SAFE_PATH_LENGTH:
             LOG.error("Path '%s' exceeds maximum safe length", path)
             return False
 
-        # Now try to resolve the path
+        # Resolve the path
         resolved = expanded.resolve(strict=True)
+
+        # Check if the resolved path is a subdirectory of the expanded path's parent
+        try:
+            expanded_parent = expanded.parent.resolve()
+            if not str(resolved).startswith(str(expanded_parent)):
+                LOG.error("Path '%s' resolves outside its parent directory", path)
+                return False
+        except Exception:
+            # If we can't resolve the parent, we can't validate containment
+            LOG.error("Could not validate path containment for '%s'", path)
+            return False
 
     except FileNotFoundError:
         LOG.error("The path '%s' does not exist", path)
@@ -111,9 +115,6 @@ def validate_vault_path(path: Path) -> bool:
         LOG.error("Could not resolve '%s': %s", path, exc)
         return False
 
-    if not resolved.exists():
-        LOG.error("The path '%s' does not exist.", resolved)
-        return False
     if not resolved.is_dir():
         LOG.error("The path '%s' is not a directory.", resolved)
         return False

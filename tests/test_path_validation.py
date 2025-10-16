@@ -96,7 +96,9 @@ def test_validate_vault_path_long_path(tmp_path, caplog):
     """Test handling of excessively long paths."""
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
     if os.name == "nt":  # Windows specific test
-        very_long = tmp_path / ("x" * (WINDOWS_MAX_SAFE_PATH_LENGTH + 10))  # Exceed safe limit by 10 chars
+        very_long = tmp_path / (
+            "x" * (WINDOWS_MAX_SAFE_PATH_LENGTH + 10)
+        )  # Exceed safe limit by 10 chars
         ok = validate_vault_path(very_long)
         assert ok is False
         assert any(
