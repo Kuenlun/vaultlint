@@ -148,7 +148,7 @@ def validate_vault_path(path: Path) -> bool:
 
 
 def run(vault_path: Path) -> int:
-    """Core runner: validate path and (later) dispatch linting."""
+    """Core runner: validate path and dispatch linter."""
     if not validate_vault_path(vault_path):
         return EXIT_VALIDATION_ERROR
     LOG.info("vaultlint ready. Checking: %s", vault_path.expanduser().resolve())

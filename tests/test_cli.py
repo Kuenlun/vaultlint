@@ -88,6 +88,9 @@ def test_run_logs_info_on_success(monkeypatch, caplog, tmp_path):
 
 def test_main_success_integration(tmp_path, caplog):
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
+    # Create a valid vault structure
+    obsidian_dir = tmp_path / ".obsidian"
+    obsidian_dir.mkdir()
     rc = main([str(tmp_path)])
     assert rc == 0
 
@@ -115,6 +118,9 @@ def test_main_keyboard_interrupt_returns_130(monkeypatch, caplog, tmp_path):
 
 def test_verbose_enables_info_logging(tmp_path):
     # single -v should enable INFO but not DEBUG
+    # Create a valid vault structure
+    obsidian_dir = tmp_path / ".obsidian"
+    obsidian_dir.mkdir()
     rc = main(["-v", str(tmp_path)])
     assert rc == 0
     assert LOG.isEnabledFor(logging.INFO)
@@ -123,6 +129,9 @@ def test_verbose_enables_info_logging(tmp_path):
 
 def test_verbose_double_enables_debug_logging(tmp_path):
     # double -vv should enable DEBUG
+    # Create a valid vault structure
+    obsidian_dir = tmp_path / ".obsidian"
+    obsidian_dir.mkdir()
     rc = main(["-vv", str(tmp_path)])
     assert rc == 0
     assert LOG.isEnabledFor(logging.DEBUG)
@@ -135,6 +144,10 @@ def test_main_expands_user_home(tmp_path, monkeypatch, caplog):
     home = tmp_path / "homeuser"
     vault = home / "vault"
     vault.mkdir(parents=True)
+
+    # Create a valid vault structure
+    obsidian_dir = vault / ".obsidian"
+    obsidian_dir.mkdir()
 
     # Monkeypatch Path.expanduser itself, since run() uses Path.expanduser()
     def fake_expand(self: Path):

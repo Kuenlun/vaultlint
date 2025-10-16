@@ -1,0 +1,43 @@
+# Example vault structure specification
+allow_extra_dirs: true
+allow_extra_files: true
+structure:
+  - type: dir
+    name: ".obsidian"
+    optional: false
+    allow_extra_dirs: true
+    allow_extra_files: true
+    children:
+      - type: file
+        name: "app.json"
+        optional: true
+      - type: file
+        name: "appearance.json"
+        optional: true
+      - type: file
+        name: "core-plugins.json"
+        optional: true
+      - type: file
+        name: "hotkeys.json"
+        optional: true
+      - type: file
+        name: "workspace.json"
+        optional: true
+      - type: dir
+        name: "plugins"
+        optional: true
+        allow_extra_dirs: true
+        allow_extra_files: true
+      - type: dir
+        name: "themes"
+        optional: true
+        allow_extra_dirs: true
+        allow_extra_files: true
+  - type: file
+    name: ".gitignore"
+    optional: true
+  - type: dir
+    name: "attachments"
+    optional: true
+    allow_extra_dirs: false
+    allow_extra_files: true
