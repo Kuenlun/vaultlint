@@ -12,11 +12,34 @@ EXIT_SUCCESS = 0
 EXIT_VALIDATION_ERROR = 1
 EXIT_KEYBOARD_INTERRUPT = 130
 
+# Logging verbosity level constants
+VERBOSITY_QUIET = 0  # Default verbosity level (WARNING)
+VERBOSITY_VERBOSE = 1  # Single -v flag (INFO)
+VERBOSITY_DEBUG = 2  # Double -vv flag (DEBUG)
+
 # Windows path length constants
-WINDOWS_MAX_SAFE_PATH_LENGTH = 240  # Safe limit under Windows MAX_PATH of 260
+WINDOWS_MAX_PATH_LIMIT = 260
+WINDOWS_SAFE_PATH_BUFFER = 20  # Safety buffer to avoid edge cases
+WINDOWS_MAX_SAFE_PATH_LENGTH = WINDOWS_MAX_PATH_LIMIT - WINDOWS_SAFE_PATH_BUFFER
+
+# Platform-specific access check constants
+WINDOWS_ACCESS_CHECK = os.R_OK
+UNIX_ACCESS_CHECK = os.R_OK | os.X_OK
+
+# Python version compatibility constants
+PYTHON_VERSION_WITH_IS_RELATIVE_TO = (3, 9)  # Path.is_relative_to() added in 3.9
+
+# Package version constants
+PACKAGE_NAME = "vaultlint"
+FALLBACK_VERSION = "0.0.0+local"
 
 
 LOG = logging.getLogger("vaultlint.cli")
+
+
+def _get_platform_access_check() -> int:
+    """Get the appropriate os.access() flags for the current platform."""
+    return WINDOWS_ACCESS_CHECK if os.name == "nt" else UNIX_ACCESS_CHECK
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -34,9 +57,9 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help="Path to the vault directory to check",
     )
     try:
-        pkg_version = im.version("vaultlint")
+        pkg_version = im.version(PACKAGE_NAME)
     except im.PackageNotFoundError:
-        pkg_version = "0.0.0+local"
+        pkg_version = FALLBACK_VERSION
     parser.add_argument(
         "-V", "--version", action="version", version=f"%(prog)s {pkg_version}"
     )
@@ -54,8 +77,8 @@ def _configure_logging(verbosity: int) -> None:
     """Configure logging without clobbering existing handlers (e.g., pytest caplog)."""
     level = (
         logging.WARNING
-        if verbosity == 0
-        else (logging.INFO if verbosity == 1 else logging.DEBUG)
+        if verbosity == VERBOSITY_QUIET
+        else (logging.INFO if verbosity == VERBOSITY_VERBOSE else logging.DEBUG)
     )
 
     # Configure our package logger
@@ -101,15 +124,19 @@ def validate_vault_path(path: Path) -> bool:
         try:
             expanded_resolved = expanded.resolve()
             # Use is_relative_to if available (Python 3.9+), else fallback to relative_to
-            if hasattr(resolved, "is_relative_to"):
+            if sys.version_info >= PYTHON_VERSION_WITH_IS_RELATIVE_TO:
                 if not resolved.is_relative_to(expanded_resolved):
-                    LOG.error("Path '%s' resolves outside the specified vault directory", path)
+                    LOG.error(
+                        "Path '%s' resolves outside the specified vault directory", path
+                    )
                     return False
             else:
                 try:
                     resolved.relative_to(expanded_resolved)
                 except ValueError:
-                    LOG.error("Path '%s' resolves outside the specified vault directory", path)
+                    LOG.error(
+                        "Path '%s' resolves outside the specified vault directory", path
+                    )
                     return False
         except (OSError, ValueError):
             # If we can't resolve the parent, we can't validate containment
@@ -134,7 +161,7 @@ def validate_vault_path(path: Path) -> bool:
     except OSError as exc:
         LOG.error("Could not access '%s': %s", resolved, exc)
         return False
-    access_check = os.R_OK if os.name == "nt" else (os.R_OK | os.X_OK)
+    access_check = _get_platform_access_check()
     if not os.access(resolved, access_check):
         LOG.warning(
             "Directory exists but may not be fully accessible: %s",
