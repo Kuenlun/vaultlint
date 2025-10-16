@@ -1,4 +1,3 @@
-# tests/test_cli.py
 """Tests for command-line interface functionality."""
 
 import logging
