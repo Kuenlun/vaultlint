@@ -151,8 +151,16 @@ def run(vault_path: Path) -> int:
     """Core runner: validate path and dispatch linter."""
     if not validate_vault_path(vault_path):
         return EXIT_VALIDATION_ERROR
-    LOG.info("vaultlint ready. Checking: %s", vault_path.expanduser().resolve())
-    return EXIT_SUCCESS
+
+    vault_path = vault_path.expanduser().resolve()
+    LOG.info("vaultlint ready. Checking: %s", vault_path)
+
+    from .checks.check_manager import check_manager
+
+    # Run checker manager
+    result = check_manager(vault_path)
+
+    return EXIT_SUCCESS if result else EXIT_VALIDATION_ERROR
 
 
 def main(argv: list[str] | None = None) -> int:
