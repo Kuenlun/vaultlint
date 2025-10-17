@@ -20,7 +20,6 @@ def load_spec_file(path: str):
     with path.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
-    LOG.info("YAML file loaded successfully:")
     return data
 
 
@@ -34,12 +33,13 @@ def struct_checker(context: "LintContext") -> bool:
         bool: True if structure check passed, False otherwise
     """
     if context.spec_path is None:
-        LOG.info("No specification file provided. Skipping structure checks.")
+        # No spec file - this is normal, not an error
         return True  # Consider this a success if no spec is required
 
     try:
         spec = load_spec_file(str(context.spec_path))
-        LOG.info("Loaded specification from: %s", context.spec_path)
+        # Keep only debug logging for development
+        LOG.debug("Loaded specification from: %s", context.spec_path)
         LOG.debug("Spec content: %s", spec)
 
         # TODO: Implement actual structure validation logic here

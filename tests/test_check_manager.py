@@ -11,10 +11,8 @@ from vaultlint.checks.check_manager import check_manager
 # ---------- Core orchestration behavior ----------
 
 
-def test_check_manager_propagates_struct_checker_success(monkeypatch, caplog):
+def test_check_manager_propagates_struct_checker_success(monkeypatch, capsys):
     """Test check_manager returns True when struct_checker succeeds."""
-    caplog.set_level(logging.INFO, logger="vaultlint.checks.check_manager")
-
     # Mock struct_checker to return success
     def mock_struct_checker(context):
         return True
@@ -27,15 +25,13 @@ def test_check_manager_propagates_struct_checker_success(monkeypatch, caplog):
     result = check_manager(context)
 
     assert result is True
-    assert any(
-        "All checks completed successfully" in r.getMessage() for r in caplog.records
-    )
+    # Verify Rich output shows success summary
+    captured = capsys.readouterr()
+    assert "Vault validation completed successfully" in captured.out
 
 
-def test_check_manager_propagates_struct_checker_failure(monkeypatch, caplog):
+def test_check_manager_propagates_struct_checker_failure(monkeypatch, capsys):
     """Test check_manager returns False when struct_checker fails."""
-    caplog.set_level(logging.ERROR, logger="vaultlint.checks.check_manager")
-
     # Mock struct_checker to return failure
     def mock_struct_checker(context):
         return False
@@ -48,7 +44,9 @@ def test_check_manager_propagates_struct_checker_failure(monkeypatch, caplog):
     result = check_manager(context)
 
     assert result is False
-    assert any("Some checks failed" in r.getMessage() for r in caplog.records)
+    # Verify Rich output shows failure summary
+    captured = capsys.readouterr()
+    assert "Vault validation failed" in captured.out
 
 
 def test_check_manager_passes_context_to_struct_checker(monkeypatch):
@@ -100,10 +98,8 @@ def test_check_manager_propagates_exceptions_from_struct_checker(monkeypatch):
 # ---------- Logging behavior ----------
 
 
-def test_check_manager_logs_vault_path_on_start(monkeypatch, caplog):
-    """Test check_manager logs the vault path when starting checks."""
-    caplog.set_level(logging.INFO, logger="vaultlint.checks.check_manager")
-
+def test_check_manager_shows_vault_path_in_summary(monkeypatch, capsys):
+    """Test check_manager shows the vault path in the summary."""
     def mock_struct_checker(context):
         return True
 
@@ -116,53 +112,9 @@ def test_check_manager_logs_vault_path_on_start(monkeypatch, caplog):
 
     check_manager(context)
 
-    # Should log the specific vault path
-    assert any(str(vault_path) in r.getMessage() for r in caplog.records)
-    assert any("Starting checks on vault" in r.getMessage() for r in caplog.records)
-
-
-def test_check_manager_logs_appropriate_level_for_results(monkeypatch, caplog):
-    """Test check_manager logs success at INFO level and failure at ERROR level."""
-    caplog.set_level(
-        logging.DEBUG, logger="vaultlint.checks.check_manager"
-    )  # Capture all levels
-
-    # Test success case
-    def mock_struct_checker_success(context):
-        return True
-
-    monkeypatch.setattr(
-        "vaultlint.checks.check_manager.struct_checker", mock_struct_checker_success
-    )
-
-    context = LintContext(vault_path=Path("/vault"))
-    check_manager(context)
-
-    success_records = [
-        r
-        for r in caplog.records
-        if "All checks completed successfully" in r.getMessage()
-    ]
-    assert len(success_records) == 1
-    assert success_records[0].levelno == logging.INFO
-
-    caplog.clear()
-
-    # Test failure case
-    def mock_struct_checker_failure(context):
-        return False
-
-    monkeypatch.setattr(
-        "vaultlint.checks.check_manager.struct_checker", mock_struct_checker_failure
-    )
-
-    check_manager(context)
-
-    failure_records = [
-        r for r in caplog.records if "Some checks failed" in r.getMessage()
-    ]
-    assert len(failure_records) == 1
-    assert failure_records[0].levelno == logging.ERROR
+    # Should show the specific vault path in Rich output
+    captured = capsys.readouterr()
+    assert str(vault_path) in captured.out
 
 
 # ---------- Future-proofing and extensibility ----------

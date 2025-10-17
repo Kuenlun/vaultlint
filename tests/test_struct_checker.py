@@ -1,6 +1,5 @@
 """Tests for struct_checker functionality."""
 
-import logging
 import tempfile
 from pathlib import Path
 from contextlib import contextmanager
@@ -26,24 +25,16 @@ def temp_yaml_file(content: str):
 # ---------- Core contract behavior ----------
 
 
-def test_struct_checker_skips_when_no_spec_provided(caplog):
-    """Test struct_checker returns True and logs when no spec_path in context."""
-    caplog.set_level(logging.INFO, logger="vaultlint.checks.structure_checker")
-
+def test_struct_checker_skips_when_no_spec_provided():
+    """Test struct_checker returns True when no spec_path in context."""
     context = LintContext(vault_path=Path("/vault"), spec_path=None)
     result = struct_checker(context)
-
-    assert result is True
-    assert any(
-        "No specification file provided" in r.getMessage() for r in caplog.records
-    )
-    assert any("Skipping structure checks" in r.getMessage() for r in caplog.records)
+    
+    assert result is True  # Should succeed when no spec is required
 
 
-def test_struct_checker_loads_valid_spec_file(caplog):
+def test_struct_checker_loads_valid_spec_file():
     """Test struct_checker successfully loads and processes valid YAML spec."""
-    caplog.set_level(logging.INFO, logger="vaultlint.checks.structure_checker")
-
     yaml_content = """
 version: 0.0.1
 allow_extra_dirs: false
@@ -57,31 +48,20 @@ structure:
         result = struct_checker(context)
 
         assert result is True  # Should succeed when spec loads
-        assert any(
-            "Loaded specification from" in r.getMessage() for r in caplog.records
-        )
-        assert any(str(spec_path) in r.getMessage() for r in caplog.records)
 
 
-def test_struct_checker_handles_missing_spec_file(caplog):
+def test_struct_checker_handles_missing_spec_file():
     """Test struct_checker returns False when spec file doesn't exist."""
-    caplog.set_level(logging.ERROR, logger="vaultlint.checks.structure_checker")
-
     nonexistent_spec = Path("/nonexistent/spec.yaml")
     context = LintContext(vault_path=Path("/vault"), spec_path=nonexistent_spec)
 
     result = struct_checker(context)
 
-    assert result is False
-    assert any(
-        "Failed to process specification file" in r.getMessage() for r in caplog.records
-    )
+    assert result is False  # Should fail when spec file is missing
 
 
-def test_struct_checker_handles_invalid_yaml(caplog):
+def test_struct_checker_handles_invalid_yaml():
     """Test struct_checker returns False when spec file contains invalid YAML."""
-    caplog.set_level(logging.ERROR, logger="vaultlint.checks.structure_checker")
-
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         f.write("invalid: yaml: content: [unclosed")  # Invalid YAML
         spec_path = Path(f.name)
@@ -90,11 +70,7 @@ def test_struct_checker_handles_invalid_yaml(caplog):
         context = LintContext(vault_path=Path("/vault"), spec_path=spec_path)
         result = struct_checker(context)
 
-        assert result is False
-        assert any(
-            "Failed to process specification file" in r.getMessage()
-            for r in caplog.records
-        )
+        assert result is False  # Should fail when YAML is invalid
     finally:
         spec_path.unlink()
 
@@ -143,20 +119,19 @@ def test_load_spec_file_missing_file():
         assert "exist.yaml" in str(e)
 
 
-def test_load_spec_file_logs_success(caplog):
-    """Test load_spec_file logs when YAML is loaded successfully."""
-    caplog.set_level(logging.INFO, logger="vaultlint.checks.structure_checker")
-
+def test_load_spec_file_loads_yaml_successfully():
+    """Test load_spec_file successfully loads and returns YAML content."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        f.write("version: 1.0")
+        f.write("version: 1.0\nname: test")
         spec_path = Path(f.name)
 
     try:
-        load_spec_file(str(spec_path))
-
-        assert any(
-            "YAML file loaded successfully" in r.getMessage() for r in caplog.records
-        )
+        result = load_spec_file(str(spec_path))
+        
+        assert result is not None
+        assert isinstance(result, dict)
+        assert result["version"] == 1.0  # YAML parses 1.0 as float
+        assert result["name"] == "test"
     finally:
         spec_path.unlink()
 

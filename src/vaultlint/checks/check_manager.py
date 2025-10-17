@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from vaultlint.checks.structure.struct_checker import struct_checker
+from vaultlint.output import output
 
 if TYPE_CHECKING:
     from vaultlint.cli import LintContext
@@ -20,14 +21,29 @@ def check_manager(context: "LintContext") -> bool:
     Returns:
         bool: True if all checks passed, False otherwise
     """
-    LOG.info("Starting checks on vault: %s", context.vault_path)
-
-    # Execute structure check with context
-    result = struct_checker(context)
-
+    # Show progress with spinner
+    with output.show_progress("Running structure checks") as progress:
+        progress.add_task("Running structure checks", total=None)
+        
+        # Execute structure check with context
+        result = struct_checker(context)
+    
+    # Print appropriate summary
+    spec_name = context.spec_path.name if context.spec_path else None
+    
     if result:
-        LOG.info("All checks completed successfully.")
+        output.print_summary_success(
+            vault_path=str(context.vault_path),
+            spec_name=spec_name,
+            checks_run=1  # Currently only structure check
+        )
     else:
-        LOG.error("Some checks failed.")
+        # For now, we don't have detailed issue tracking, so just show generic failure
+        output.print_summary_failure(
+            vault_path=str(context.vault_path),
+            spec_name=spec_name,
+            checks_run=1,
+            issues=["Structure validation failed"]  # Generic message for now
+        )
 
     return result

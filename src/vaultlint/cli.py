@@ -7,6 +7,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 import importlib.metadata as im
+from .output import output
 
 # Exit codes
 EXIT_SUCCESS = 0
@@ -133,17 +134,17 @@ def _resolve_path_safely(path: Path) -> Path | None:
 
         # Check path length (Windows MAX_PATH is 260, but we'll use a safe limit)
         if os.name == "nt" and len(str(expanded)) > WINDOWS_MAX_SAFE_PATH_LENGTH:
-            LOG.error("Path '%s' exceeds maximum safe length", path)
+            output.print_error("Path exceeds maximum safe length", str(path))
             return None
 
         # Resolve the path
         return expanded.resolve(strict=True)
 
     except FileNotFoundError:
-        LOG.error("The path '%s' does not exist", path)
+        output.print_error("The path does not exist", str(path))
         return None
     except (OSError, ValueError) as exc:
-        LOG.error("Could not resolve '%s': %s", path, exc)
+        output.print_error(f"Could not resolve path: {exc}", str(path))
         return None
 
 
@@ -157,22 +158,19 @@ def validate_vault_path(path: Path) -> bool:
         return False
 
     if not resolved.is_dir():
-        LOG.error("The path '%s' is not a directory.", resolved)
+        output.print_error("The path is not a directory", str(resolved))
         return False
     try:
         next(resolved.iterdir(), None)
     except PermissionError:
-        LOG.error("The directory '%s' is not readable.", resolved)
+        output.print_error("The directory is not readable", str(resolved))
         return False
     except OSError as exc:
-        LOG.error("Could not access '%s': %s", resolved, exc)
+        output.print_error(f"Could not access directory: {exc}", str(resolved))
         return False
     access_check = _get_platform_access_check()
     if not os.access(resolved, access_check):
-        LOG.warning(
-            "Directory exists but may not be fully accessible: %s",
-            resolved,
-        )
+        output.print_warning("Directory may not be fully accessible", str(resolved))
     return True
 
 
@@ -195,25 +193,25 @@ def resolve_spec_file(vault_path: Path, spec_arg: Path | None = None) -> Path | 
     if spec_arg:
         resolved_spec = _resolve_path_safely(spec_arg)
         if resolved_spec is not None:
-            LOG.info("Using specification file: %s", resolved_spec)
             return resolved_spec
         else:
-            LOG.error("Could not resolve specified spec file: %s", spec_arg)
+            output.print_error("Could not resolve specified spec file", str(spec_arg))
             return None
 
     # Second priority: vspec.yaml in vault root
     default_spec = vault_path / "vspec.yaml"
     if default_spec.exists():
-        LOG.info("Found specification file in vault root: %s", default_spec)
         return default_spec.resolve()
 
-    # No spec file found
-    LOG.info("No specification file found. Structure checks will be skipped.")
+    # No spec file found - this is normal, not an error
     return None
 
 
 def run(vault_path: Path, spec_path: Path | None = None) -> int:
     """Core runner: validate path and dispatch linter."""
+    # Start timing
+    output.start_timing()
+    
     if not validate_vault_path(vault_path):
         return EXIT_VALIDATION_ERROR
 
@@ -222,15 +220,20 @@ def run(vault_path: Path, spec_path: Path | None = None) -> int:
     if resolved_vault is None:
         return EXIT_VALIDATION_ERROR
 
+    # Print vault being checked with nice formatting
+    output.print_checking_vault(str(resolved_vault))
+
     # Resolve spec file path
     resolved_spec = resolve_spec_file(resolved_vault, spec_path)
 
+    # Print spec status with nice formatting
+    if resolved_spec:
+        output.print_using_spec(resolved_spec.name)
+    else:
+        output.print_no_spec()
+
     # Create context object with all configuration
     context = LintContext(vault_path=resolved_vault, spec_path=resolved_spec)
-
-    LOG.info("vaultlint ready. Checking: %s", context.vault_path)
-    if context.spec_path:
-        LOG.info("Using specification: %s", context.spec_path)
 
     from .checks.check_manager import check_manager
 

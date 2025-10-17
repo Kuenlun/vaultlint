@@ -21,15 +21,17 @@ def test_run_integration_validation_failure(monkeypatch, caplog, tmp_path):
     ]
 
 
-def test_run_integration_success_logging(monkeypatch, caplog, tmp_path):
-    """Test run() logs success info and returns exit code 0."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
+def test_run_integration_success_output(monkeypatch, tmp_path, capsys):
+    """Test run() shows success output and returns exit code 0."""
     monkeypatch.setattr("vaultlint.cli.validate_vault_path", lambda _p: True)
 
     # Use tmp_path instead of non-existent path
     rc = run(tmp_path, None)
     assert rc == 0
-    assert any("vaultlint ready. Checking:" in r.getMessage() for r in caplog.records)
+    
+    # Check that we get Rich output instead of log messages
+    captured = capsys.readouterr()
+    assert "Checking vault:" in captured.out
 
 
 # ---------- Full CLI integration tests ----------
@@ -45,13 +47,14 @@ def test_cli_integration_valid_vault(tmp_path, caplog):
     assert rc == 0
 
 
-def test_cli_integration_invalid_path(tmp_path, caplog):
+def test_cli_integration_invalid_path(tmp_path, capsys):
     """Test main() integration with nonexistent path returns exit code 1."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
     missing = tmp_path / "nope"
     rc = main([str(missing)])
     assert rc == 1
-    assert any("does not exist" in r.getMessage() for r in caplog.records)
+    # Check Rich error output instead of logs
+    captured = capsys.readouterr()
+    assert "does not exist" in captured.out
 
 
 def test_cli_integration_keyboard_interrupt(monkeypatch, caplog, tmp_path):
@@ -91,10 +94,8 @@ def test_cli_integration_verbose_debug_logging(tmp_path):
     assert LOG.isEnabledFor(logging.DEBUG)
 
 
-def test_cli_integration_expanduser_resolution(tmp_path, monkeypatch, caplog):
+def test_cli_integration_expanduser_resolution(tmp_path, monkeypatch, capsys):
     """Test main() integration with user home path expansion."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
-
     home = tmp_path / "homeuser"
     vault = home / "vault"
     vault.mkdir(parents=True)
@@ -109,8 +110,12 @@ def test_cli_integration_expanduser_resolution(tmp_path, monkeypatch, caplog):
 
     monkeypatch.setattr(Path, "expanduser", fake_expand)
 
-    # call with -v so INFO logs are emitted
     rc = main(["-v", "~/vault"])
     assert rc == 0
-    # The resolved path should appear in the info message
-    assert any(str(vault.resolve()) in r.getMessage() for r in caplog.records)
+    # The resolved path should appear in Rich output (may be formatted with colors/breaks)
+    captured = capsys.readouterr()
+    # Check for key parts of the path since Rich may format it with colors and line breaks
+    vault_parts = str(vault.resolve()).split("\\")  # Split Windows path
+    # Check that at least the last few unique parts appear in output
+    assert "homeuser" in captured.out
+    assert "vault" in captured.out

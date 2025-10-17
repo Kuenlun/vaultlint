@@ -1,6 +1,5 @@
 """Tests for path resolution and validation operations."""
 
-import logging
 import os
 from pathlib import Path
 import pytest
@@ -23,13 +22,14 @@ def test_resolve_path_safely_existing_path(tmp_path):
     assert result.exists()
 
 
-def test_resolve_path_safely_nonexistent_path(caplog):
+def test_resolve_path_safely_nonexistent_path(capsys):
     """Test _resolve_path_safely with non-existent path."""
-    caplog.set_level(logging.ERROR, logger="vaultlint.cli")
     nonexistent = Path("/definitely/does/not/exist")
     result = _resolve_path_safely(nonexistent)
     assert result is None
-    assert any("does not exist" in r.getMessage() for r in caplog.records)
+    # Check Rich error output instead of logs
+    captured = capsys.readouterr()
+    assert "does not exist" in captured.out
 
 
 def test_resolve_path_safely_expanduser(tmp_path, monkeypatch):
@@ -56,37 +56,36 @@ def test_resolve_path_safely_expanduser(tmp_path, monkeypatch):
 # ---------- Vault path validation ----------
 
 
-def test_validate_vault_path_ok(tmp_path, caplog):
+def test_validate_vault_path_ok(tmp_path, capsys):
     """Test basic validation of a valid path."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
     ok = validate_vault_path(tmp_path)
     assert ok is True
-    # No error-level logs expected
-    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    # Valid path should not produce error output
+    captured = capsys.readouterr()
+    assert "Error" not in captured.out
 
 
-def test_validate_vault_path_nonexistent(tmp_path, caplog):
+def test_validate_vault_path_nonexistent(tmp_path, capsys):
     """Test validation of a nonexistent path."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
     missing = tmp_path / "does-not-exist"
     ok = validate_vault_path(missing)
     assert ok is False
-    assert any("does not exist" in r.getMessage() for r in caplog.records)
+    captured = capsys.readouterr()
+    assert "does not exist" in captured.out
 
 
-def test_validate_vault_path_file_instead_of_dir(tmp_path, caplog):
+def test_validate_vault_path_file_instead_of_dir(tmp_path, capsys):
     """Test validation when path points to a file instead of directory."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
     f = tmp_path / "file.txt"
     f.write_text("hi")
     ok = validate_vault_path(f)
     assert ok is False
-    assert any("is not a directory" in r.getMessage() for r in caplog.records)
+    captured = capsys.readouterr()
+    assert "is not a directory" in captured.out
 
 
-def test_validate_vault_path_permission_error_simulated(tmp_path, caplog, monkeypatch):
+def test_validate_vault_path_permission_error_simulated(tmp_path, capsys, monkeypatch):
     """Simulate PermissionError on iterdir in a cross-platform safe way."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
     real_iterdir = Path.iterdir
 
     def guarded_iterdir(self):
@@ -97,26 +96,26 @@ def test_validate_vault_path_permission_error_simulated(tmp_path, caplog, monkey
     monkeypatch.setattr(Path, "iterdir", guarded_iterdir)
     ok = validate_vault_path(tmp_path)
     assert ok is False
-    assert any("not readable" in r.getMessage() for r in caplog.records)
+    captured = capsys.readouterr()
+    assert "not readable" in captured.out
 
 
-def test_validate_vault_path_warns_when_os_access_fails(tmp_path, caplog, monkeypatch):
+def test_validate_vault_path_warns_when_os_access_fails(tmp_path, capsys, monkeypatch):
     """Test warning when os.access reports limited permissions."""
-    caplog.set_level(logging.WARNING, logger="vaultlint.cli")
     monkeypatch.setattr(os, "access", lambda *_args, **_kw: False)
     ok = validate_vault_path(tmp_path)
     assert ok is True
-    assert any("may not be fully accessible" in r.getMessage() for r in caplog.records)
+    captured = capsys.readouterr()
+    assert "may not be fully accessible" in captured.out
 
 
-def test_validate_vault_path_with_traversal(tmp_path, caplog):
+def test_validate_vault_path_with_traversal(tmp_path, capsys):
     """Test that path traversal to existing directories works correctly.
 
     Note: This function no longer prevents path traversal - it simply validates
     that the resolved path exists and is accessible. Path traversal prevention
     is not needed for a CLI tool where users specify vault directories.
     """
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
 
     # Test 1: Navigate to parent directory using ".."
     parent = tmp_path.parent
@@ -130,35 +129,32 @@ def test_validate_vault_path_with_traversal(tmp_path, caplog):
     nonexistent_traversal = tmp_path / ".." / "nonexistent_directory_12345"
     ok_nonexistent = validate_vault_path(nonexistent_traversal)
     assert ok_nonexistent is False
-    assert any("does not exist" in r.getMessage() for r in caplog.records)
+    captured = capsys.readouterr()
+    assert "does not exist" in captured.out
 
 
-def test_validate_vault_path_unicode(tmp_path, caplog):
+def test_validate_vault_path_unicode(tmp_path, capsys):
     """Test Unicode path handling."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
     unicode_path = tmp_path / "测试"
     unicode_path.mkdir()
     ok = validate_vault_path(unicode_path)
     assert ok is True
 
 
-def test_validate_vault_path_long_path(tmp_path, caplog):
+def test_validate_vault_path_long_path(tmp_path, capsys):
     """Test handling of excessively long paths."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
     if os.name == "nt":  # Windows specific test
         very_long = tmp_path / (
             "x" * (WINDOWS_MAX_SAFE_PATH_LENGTH + 10)
         )  # Exceed safe limit by 10 chars
         ok = validate_vault_path(very_long)
         assert ok is False
-        assert any(
-            "maximum safe length" in r.getMessage().lower() for r in caplog.records
-        )
+        captured = capsys.readouterr()
+        assert "maximum safe length" in captured.out.lower()
 
 
-def test_validate_vault_path_symlink(tmp_path, caplog):
+def test_validate_vault_path_symlink(tmp_path, capsys):
     """Test strict symlink resolution."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
     target = tmp_path / "target"
     target.mkdir()
     symlink = tmp_path / "link"
