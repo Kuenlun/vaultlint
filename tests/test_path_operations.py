@@ -1,12 +1,59 @@
-"""Tests for path validation functionality."""
+"""Tests for path resolution and validation operations."""
 
 import logging
 import os
 from pathlib import Path
 import pytest
-from vaultlint.cli import validate_vault_path, WINDOWS_MAX_SAFE_PATH_LENGTH
 
-# ---------- Basic path validation ----------
+from vaultlint.cli import (
+    _resolve_path_safely,
+    validate_vault_path,
+    WINDOWS_MAX_SAFE_PATH_LENGTH,
+)
+
+
+# ---------- Path resolution functions ----------
+
+
+def test_resolve_path_safely_existing_path(tmp_path):
+    """Test _resolve_path_safely with existing path."""
+    result = _resolve_path_safely(tmp_path)
+    assert result is not None
+    assert result.is_absolute()
+    assert result.exists()
+
+
+def test_resolve_path_safely_nonexistent_path(caplog):
+    """Test _resolve_path_safely with non-existent path."""
+    caplog.set_level(logging.ERROR, logger="vaultlint.cli")
+    nonexistent = Path("/definitely/does/not/exist")
+    result = _resolve_path_safely(nonexistent)
+    assert result is None
+    assert any("does not exist" in r.getMessage() for r in caplog.records)
+
+
+def test_resolve_path_safely_expanduser(tmp_path, monkeypatch):
+    """Test _resolve_path_safely expands user home."""
+    # Create a test file in tmp_path to make it exist
+    test_file = tmp_path / "test_file.txt"
+    test_file.write_text("test")
+
+    # Mock expanduser to return our tmp_path when called with "~"
+    original_expanduser = Path.expanduser
+
+    def fake_expanduser(self):
+        if str(self) == "~":
+            return tmp_path
+        return original_expanduser(self)
+
+    monkeypatch.setattr(Path, "expanduser", fake_expanduser)
+
+    result = _resolve_path_safely(Path("~"))
+    assert result is not None
+    assert result == tmp_path.resolve()
+
+
+# ---------- Vault path validation ----------
 
 
 def test_validate_vault_path_ok(tmp_path, caplog):
@@ -37,9 +84,6 @@ def test_validate_vault_path_file_instead_of_dir(tmp_path, caplog):
     assert any("is not a directory" in r.getMessage() for r in caplog.records)
 
 
-# ---------- Permission and access tests ----------
-
-
 def test_validate_vault_path_permission_error_simulated(tmp_path, caplog, monkeypatch):
     """Simulate PermissionError on iterdir in a cross-platform safe way."""
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
@@ -63,9 +107,6 @@ def test_validate_vault_path_warns_when_os_access_fails(tmp_path, caplog, monkey
     ok = validate_vault_path(tmp_path)
     assert ok is True
     assert any("may not be fully accessible" in r.getMessage() for r in caplog.records)
-
-
-# ---------- Edge cases and special paths ----------
 
 
 def test_validate_vault_path_with_traversal(tmp_path, caplog):

@@ -1,69 +1,16 @@
-"""Tests for command-line interface functionality."""
+"""Tests for CLI integration and end-to-end functionality."""
 
 import logging
 from pathlib import Path
-import pytest
 
-from vaultlint.cli import (
-    parse_arguments,
-    run,
-    main,
-    LOG,
-)
-
-# ---------- Argument parsing ----------
+from vaultlint.cli import run, main, LOG
 
 
-def test_parse_arguments_returns_path(tmp_path):
-    ns = parse_arguments([str(tmp_path)])
-    assert isinstance(ns.path, Path)
-    assert ns.path == tmp_path
+# ---------- Core runner integration tests ----------
 
 
-def test_parse_arguments_requires_path():
-    # Argparse should exit with code 2 when required positional arg is missing
-    with pytest.raises(SystemExit) as exc:
-        parse_arguments([])
-    assert exc.value.code == 2
-
-
-def test_parse_arguments_version_flag_prints_version_and_exits(monkeypatch, capsys):
-    # Mock version() to ensure deterministic output
-    import importlib.metadata as im
-
-    monkeypatch.setattr(im, "version", lambda _: "1.2.3")
-    with pytest.raises(SystemExit) as exc:
-        parse_arguments(["-V"])
-    assert exc.value.code == 0
-    out = capsys.readouterr().out
-    # argparse "version" action prints "<prog> <version>"
-    assert "vaultlint 1.2.3" in out
-
-
-def test_parse_arguments_version_flag_without_package(monkeypatch, capsys):
-    import importlib.metadata as im
-    from importlib.metadata import PackageNotFoundError
-
-    def raise_not_found(_):
-        raise PackageNotFoundError
-
-    monkeypatch.setattr(im, "version", raise_not_found)
-
-    # argparse's "version" action exits with code 0 after printing fallback
-    with pytest.raises(SystemExit) as exc:
-        parse_arguments(["-V"])
-    assert exc.value.code == 0
-
-    out = capsys.readouterr().out
-    # format is "<prog> <version>\n"
-    assert out.startswith("vaultlint ")
-    assert "0.0.0+local" in out
-
-
-# ---------- Runner behavior ----------
-
-
-def test_run_returns_1_when_validation_fails(monkeypatch, caplog, tmp_path):
+def test_run_integration_validation_failure(monkeypatch, caplog, tmp_path):
+    """Test run() returns exit code 1 when path validation fails."""
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
     monkeypatch.setattr("vaultlint.cli.validate_vault_path", lambda _p: False)
     rc = run(tmp_path)
@@ -74,19 +21,22 @@ def test_run_returns_1_when_validation_fails(monkeypatch, caplog, tmp_path):
     ]
 
 
-def test_run_logs_info_on_success(monkeypatch, caplog, tmp_path):
+def test_run_integration_success_logging(monkeypatch, caplog, tmp_path):
+    """Test run() logs success info and returns exit code 0."""
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
     monkeypatch.setattr("vaultlint.cli.validate_vault_path", lambda _p: True)
-    homey = Path("~") / "some" / "vault"  # exercise expanduser()+resolve()
-    rc = run(homey)
+
+    # Use tmp_path instead of non-existent path
+    rc = run(tmp_path, None)
     assert rc == 0
     assert any("vaultlint ready. Checking:" in r.getMessage() for r in caplog.records)
 
 
-# ---------- main() integration ----------
+# ---------- Full CLI integration tests ----------
 
 
-def test_main_success_integration(tmp_path, caplog):
+def test_cli_integration_valid_vault(tmp_path, caplog):
+    """Test main() integration with valid vault structure."""
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
     # Create a valid vault structure
     obsidian_dir = tmp_path / ".obsidian"
@@ -95,7 +45,8 @@ def test_main_success_integration(tmp_path, caplog):
     assert rc == 0
 
 
-def test_main_nonexistent_path_returns_1(tmp_path, caplog):
+def test_cli_integration_invalid_path(tmp_path, caplog):
+    """Test main() integration with nonexistent path returns exit code 1."""
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
     missing = tmp_path / "nope"
     rc = main([str(missing)])
@@ -103,10 +54,11 @@ def test_main_nonexistent_path_returns_1(tmp_path, caplog):
     assert any("does not exist" in r.getMessage() for r in caplog.records)
 
 
-def test_main_keyboard_interrupt_returns_130(monkeypatch, caplog, tmp_path):
+def test_cli_integration_keyboard_interrupt(monkeypatch, caplog, tmp_path):
+    """Test main() integration handles KeyboardInterrupt with exit code 130."""
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
 
-    def raise_kbi(_):
+    def raise_kbi(_path, _spec=None):  # Updated to match new signature
         raise KeyboardInterrupt
 
     monkeypatch.setattr("vaultlint.cli.run", raise_kbi)
@@ -116,7 +68,8 @@ def test_main_keyboard_interrupt_returns_130(monkeypatch, caplog, tmp_path):
     assert any("Interrupted by user" in r.getMessage() for r in caplog.records)
 
 
-def test_verbose_enables_info_logging(tmp_path):
+def test_cli_integration_verbose_info_logging(tmp_path):
+    """Test main() integration with single -v enables INFO logging."""
     # single -v should enable INFO but not DEBUG
     # Create a valid vault structure
     obsidian_dir = tmp_path / ".obsidian"
@@ -127,7 +80,8 @@ def test_verbose_enables_info_logging(tmp_path):
     assert not LOG.isEnabledFor(logging.DEBUG)
 
 
-def test_verbose_double_enables_debug_logging(tmp_path):
+def test_cli_integration_verbose_debug_logging(tmp_path):
+    """Test main() integration with double -vv enables DEBUG logging."""
     # double -vv should enable DEBUG
     # Create a valid vault structure
     obsidian_dir = tmp_path / ".obsidian"
@@ -137,8 +91,8 @@ def test_verbose_double_enables_debug_logging(tmp_path):
     assert LOG.isEnabledFor(logging.DEBUG)
 
 
-def test_main_expands_user_home(tmp_path, monkeypatch, caplog):
-    """Ensure '~' is expanded via Path.expanduser in the run path."""
+def test_cli_integration_expanduser_resolution(tmp_path, monkeypatch, caplog):
+    """Test main() integration with user home path expansion."""
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
 
     home = tmp_path / "homeuser"
