@@ -298,7 +298,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return run(args.path, args.spec)
     except KeyboardInterrupt:
-        LOG.error("Interrupted by user")
+        output.print_error("Operation interrupted by user")
         return EXIT_KEYBOARD_INTERRUPT
 
 

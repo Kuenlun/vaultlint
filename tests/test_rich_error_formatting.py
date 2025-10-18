@@ -7,7 +7,7 @@ ensuring consistent visual presentation across all CLI error scenarios.
 import pytest
 from unittest.mock import patch
 from vaultlint.cli import RichArgumentParser
-from vaultlint.output import output
+from vaultlint.output import output, OutputManager
 
 
 class TestRichArgumentParser:
@@ -19,7 +19,7 @@ class TestRichArgumentParser:
         Ensures that missing argument errors use consistent rich formatting
         with the rest of the application (red error icon, clear message).
         """
-        parser = RichArgumentParser(prog="vaultlint")
+        parser = RichArgumentParser(prog="vaultlint", output_manager=OutputManager())
         parser.add_argument("path", help="Path to vault")
 
         with patch("vaultlint.output.console") as mock_console:
@@ -47,7 +47,7 @@ class TestRichArgumentParser:
         Ensures that invalid argument errors use consistent rich formatting
         and provide clear feedback about what went wrong.
         """
-        parser = RichArgumentParser(prog="vaultlint")
+        parser = RichArgumentParser(prog="vaultlint", output_manager=OutputManager())
         parser.add_argument("path", help="Path to vault")
 
         with patch("vaultlint.output.console") as mock_console:
@@ -73,7 +73,7 @@ class TestRichArgumentParser:
 
         Ensures proper handling and formatting when users provide multiple invalid flags.
         """
-        parser = RichArgumentParser(prog="testprog")
+        parser = RichArgumentParser(prog="testprog", output_manager=OutputManager())
         parser.add_argument("path", help="Path to vault")
 
         with patch("vaultlint.output.console") as mock_console:

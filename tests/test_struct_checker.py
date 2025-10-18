@@ -62,17 +62,13 @@ def test_struct_checker_handles_missing_spec_file():
 
 def test_struct_checker_handles_invalid_yaml():
     """Test struct_checker returns False when spec file contains invalid YAML."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        f.write("invalid: yaml: content: [unclosed")  # Invalid YAML
-        spec_path = Path(f.name)
+    invalid_yaml_content = "invalid: yaml: content: [unclosed"  # Invalid YAML
 
-    try:
+    with temp_yaml_file(invalid_yaml_content) as spec_path:
         context = LintContext(vault_path=Path("/vault"), spec_path=spec_path)
         result = struct_checker(context)
 
         assert result is False  # Should fail when YAML is invalid
-    finally:
-        spec_path.unlink()
 
 
 # ---------- load_spec_file utility function tests ----------
@@ -85,11 +81,7 @@ structure:
   - type: dir
     name: .obsidian"""
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        f.write(yaml_content)
-        spec_path = Path(f.name)
-
-    try:
+    with temp_yaml_file(yaml_content) as spec_path:
         result = load_spec_file(str(spec_path))
 
         assert isinstance(result, dict)
@@ -99,8 +91,6 @@ structure:
         assert len(result["structure"]) == 1
         assert result["structure"][0]["type"] == "dir"
         assert result["structure"][0]["name"] == ".obsidian"
-    finally:
-        spec_path.unlink()
 
 
 def test_load_spec_file_missing_file():
@@ -118,19 +108,15 @@ def test_load_spec_file_missing_file():
 
 def test_load_spec_file_loads_yaml_successfully():
     """Test load_spec_file successfully loads and returns YAML content."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        f.write("version: 1.0\nname: test")
-        spec_path = Path(f.name)
+    yaml_content = "version: 1.0\nname: test"
 
-    try:
+    with temp_yaml_file(yaml_content) as spec_path:
         result = load_spec_file(str(spec_path))
 
         assert result is not None
         assert isinstance(result, dict)
         assert result["version"] == 1.0  # YAML parses 1.0 as float
         assert result["name"] == "test"
-    finally:
-        spec_path.unlink()
 
 
 # ---------- Context integration behavior ----------
@@ -138,19 +124,17 @@ def test_load_spec_file_loads_yaml_successfully():
 
 def test_struct_checker_uses_context_spec_path_correctly():
     """Test struct_checker uses the exact spec_path from context."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        f.write("version: test")
-        expected_spec_path = Path(f.name)
+    yaml_content = "version: test"
 
-    # Mock load_spec_file to verify it receives the correct path
-    actual_path_received = None
+    with temp_yaml_file(yaml_content) as expected_spec_path:
+        # Mock load_spec_file to verify it receives the correct path
+        actual_path_received = None
 
-    def mock_load_spec_file(path_str):
-        nonlocal actual_path_received
-        actual_path_received = path_str
-        return {"version": "test"}
+        def mock_load_spec_file(path_str):
+            nonlocal actual_path_received
+            actual_path_received = path_str
+            return {"version": "test"}
 
-    try:
         with patch(
             "vaultlint.checks.structure.struct_checker.load_spec_file",
             mock_load_spec_file,
@@ -161,8 +145,6 @@ def test_struct_checker_uses_context_spec_path_correctly():
             struct_checker(context)
 
             assert actual_path_received == str(expected_spec_path)
-    finally:
-        expected_spec_path.unlink()
 
 
 # ---------- Error resilience ----------
@@ -186,12 +168,9 @@ def test_struct_checker_graceful_degradation_philosophy():
 def test_struct_checker_current_placeholder_behavior():
     """Test current placeholder behavior - always returns True for valid specs."""
     # This test documents the current state and will need updating when real logic is implemented
+    yaml_content = "version: 1.0\nallow_extra_dirs: false"  # Any valid YAML
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        f.write("version: 1.0\nallow_extra_dirs: false")  # Any valid YAML
-        spec_path = Path(f.name)
-
-    try:
+    with temp_yaml_file(yaml_content) as spec_path:
         context = LintContext(vault_path=Path("/vault"), spec_path=spec_path)
         result = struct_checker(context)
 
@@ -200,5 +179,3 @@ def test_struct_checker_current_placeholder_behavior():
         assert (
             result is True
         ), "Current implementation should return True for loadable specs"
-    finally:
-        spec_path.unlink()

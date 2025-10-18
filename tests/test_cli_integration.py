@@ -57,18 +57,17 @@ def test_cli_integration_invalid_path(tmp_path, capsys):
     assert "does not exist" in captured.out
 
 
-def test_cli_integration_keyboard_interrupt(monkeypatch, caplog, tmp_path):
+def test_cli_integration_keyboard_interrupt(monkeypatch, capsys, tmp_path):
     """Test main() integration handles KeyboardInterrupt with exit code 130."""
-    caplog.set_level(logging.INFO, logger="vaultlint.cli")
-
-    def raise_kbi(path, spec=None):
+    def raise_kbi(_path, _spec=None):  # Updated to match new signature
         raise KeyboardInterrupt
 
     monkeypatch.setattr("vaultlint.cli.run", raise_kbi)
-    # call with -v so INFO logs are emitted
-    rc = main(["-v", str(tmp_path)])
+    rc = main([str(tmp_path)])
     assert rc == 130
-    assert any("Interrupted by user" in r.getMessage() for r in caplog.records)
+    # Check Rich error output instead of logs
+    captured = capsys.readouterr()
+    assert "Operation interrupted by user" in captured.out
 
 
 def test_cli_integration_verbose_info_logging(tmp_path):
