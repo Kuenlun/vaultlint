@@ -59,7 +59,7 @@ test-junit.xml
 
 # Development scripts for CI debugging
 test-xml-generation.py
-clean-junit-xml.py
+# clean-junit-xml.py is needed for CI workflows
 
 # Translations
 *.mo
