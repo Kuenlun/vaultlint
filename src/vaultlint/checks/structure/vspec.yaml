@@ -1,0 +1,37 @@
+# Example vault structure specification
+
+version: 0.0.1 # Version of specification (not vaultlint)
+
+allow_extra_dirs: false # Default: no unexpected new directories allowed
+allow_extra_files: true # Default: allow new files unless specified otherwise
+structure:
+  - type: dir
+    name: ".git"
+    allow_extra_dirs: true
+
+  - type: dir
+    name: ".obsidian"
+    allow_extra_dirs: true
+
+  - type: dir
+    name: "attachments"
+    exclude: ["*.md"] # No notes allowed in attachments
+
+  - type: dir
+    name: "notas"
+    include: ["*.md"] # Only notes allowed
+    children:
+      - type: dir
+        name: "diario"
+      - type: dir
+        name: "fleeting"
+      - type: dir
+        name: "main"
+      - type: dir
+        name: "templates"
+      - type: dir
+        name: "void"
+        allow_extra_files: false # Temporary holding folder for new notes - should remain empty
+
+  - type: file
+    name: ".gitignore"

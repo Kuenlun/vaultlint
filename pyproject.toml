@@ -4,6 +4,10 @@ dynamic = ["version"]
 description = "A modular linter for Obsidian that validates Markdown, YAML front matter, and vault structure"
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = [
+    "PyYAML>=6.0.3",
+    "rich>=14.2.0"
+]
 
 [project.scripts]
 vaultlint = "vaultlint.cli:main"
