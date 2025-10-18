@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 from vaultlint.checks.structure.struct_checker import struct_checker
 from vaultlint.output import output
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from vaultlint.cli import LintContext
 
-LOG = logging.getLogger("vaultlint.checks.check_manager")
+LOG = logging.getLogger("vaultlint.checks.check_manager")  # pragma: no cover
 
 
 def check_manager(context: "LintContext") -> bool:

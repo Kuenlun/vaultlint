@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from vaultlint.cli import LintContext
 
-LOG = logging.getLogger("vaultlint.checks.structure_checker")
+LOG = logging.getLogger("vaultlint.checks.structure_checker")  # pragma: no cover
 
 
 def load_spec_file(path: str):
