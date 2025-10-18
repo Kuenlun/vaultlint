@@ -43,10 +43,10 @@ LOG = logging.getLogger("vaultlint.cli")
 class RichArgumentParser(argparse.ArgumentParser):
     """Custom ArgumentParser that uses rich formatting for error messages."""
 
-    def __init__(self, *args, output_manager=None, **kwargs):
-        """Initialize with optional output manager dependency injection."""
+    def __init__(self, *args, output_manager, **kwargs):
+        """Initialize with explicit output manager dependency injection."""
         super().__init__(*args, **kwargs)
-        self._output_manager = output_manager or output
+        self._output_manager = output_manager
 
     def error(self, message: str) -> None:
         """Override error method to use rich formatting."""
