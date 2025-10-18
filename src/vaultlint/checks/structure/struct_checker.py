@@ -12,15 +12,43 @@ LOG = logging.getLogger("vaultlint.checks.structure_checker")
 
 
 def load_spec_file(path: str):
-    """Load a YAML file and return its content as a dictionary."""
+    """Load a YAML file and return its content as a dictionary.
+
+    Args:
+        path: Path to the YAML specification file
+
+    Returns:
+        dict: Parsed YAML content
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist
+        PermissionError: If there are permission issues accessing the file
+        yaml.YAMLError: If the YAML content is invalid
+        OSError/IOError: For other I/O related errors
+    """
     path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {path}")
 
-    with path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    try:
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {path}")
 
-    return data
+        with path.open("r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        return data
+
+    except yaml.YAMLError as e:
+        LOG.error("YAML error while processing specification file: %s", e)
+        raise
+    except FileNotFoundError as e:
+        LOG.error("Specification file not found: %s", e)
+        raise
+    except PermissionError as e:
+        LOG.error("Permission denied when accessing specification file: %s", e)
+        raise
+    except (OSError, IOError) as e:
+        LOG.error("I/O error while reading specification file: %s", e)
+        raise
 
 
 def struct_checker(context: "LintContext") -> bool:
@@ -47,6 +75,7 @@ def struct_checker(context: "LintContext") -> bool:
 
         return True  # Placeholder - return True if spec loads successfully
 
-    except Exception as e:
-        LOG.error("Failed to process specification file: %s", e)
+    except (yaml.YAMLError, FileNotFoundError, PermissionError, OSError, IOError):
+        # All specific errors are already logged by load_spec_file()
+        # Just return False to indicate validation failure
         return False

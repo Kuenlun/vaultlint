@@ -12,6 +12,7 @@ from .output import output
 # Exit codes
 EXIT_SUCCESS = 0
 EXIT_VALIDATION_ERROR = 1
+EXIT_USAGE_ERROR = 2  # Command-line argument errors
 EXIT_KEYBOARD_INTERRUPT = 130
 
 # Logging verbosity level constants
@@ -42,10 +43,13 @@ LOG = logging.getLogger("vaultlint.cli")
 class RichArgumentParser(argparse.ArgumentParser):
     """Custom ArgumentParser that uses rich formatting for error messages."""
 
+    def __init__(self, *args, output_manager=None, **kwargs):
+        """Initialize with optional output manager dependency injection."""
+        super().__init__(*args, **kwargs)
+        self._output_manager = output_manager or output
+
     def error(self, message: str) -> None:
         """Override error method to use rich formatting."""
-        from .output import output
-
         # Transform the message to be more user-friendly
         if "required:" in message:
             if "path" in message:
@@ -61,8 +65,8 @@ class RichArgumentParser(argparse.ArgumentParser):
         else:
             friendly_message = message.capitalize()
 
-        output.print_usage_error(self.prog, friendly_message)
-        self.exit(2)
+        self._output_manager.print_usage_error(self.prog, friendly_message)
+        self.exit(EXIT_USAGE_ERROR)
 
 
 @dataclass(frozen=True)
@@ -86,6 +90,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
             "A modular linter for Obsidian that validates Markdown, "
             "YAML front matter, and vault structure"
         ),
+        output_manager=output,
     )
     parser.add_argument(
         "path",

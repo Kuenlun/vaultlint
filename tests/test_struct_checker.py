@@ -29,7 +29,7 @@ def test_struct_checker_skips_when_no_spec_provided():
     """Test struct_checker returns True when no spec_path in context."""
     context = LintContext(vault_path=Path("/vault"), spec_path=None)
     result = struct_checker(context)
-    
+
     assert result is True  # Should succeed when no spec is required
 
 
@@ -80,19 +80,13 @@ def test_struct_checker_handles_invalid_yaml():
 
 def test_load_spec_file_success():
     """Test load_spec_file loads valid YAML correctly."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        test_content = {
-            "version": "0.0.1",
-            "structure": [{"type": "dir", "name": ".obsidian"}],
-        }
-        f.write(
-            """
-version: "0.0.1"
+    yaml_content = """version: "0.0.1"
 structure:
   - type: dir
-    name: .obsidian
-"""
-        )
+    name: .obsidian"""
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(yaml_content)
         spec_path = Path(f.name)
 
     try:
@@ -102,6 +96,9 @@ structure:
         assert result["version"] == "0.0.1"
         assert "structure" in result
         assert isinstance(result["structure"], list)
+        assert len(result["structure"]) == 1
+        assert result["structure"][0]["type"] == "dir"
+        assert result["structure"][0]["name"] == ".obsidian"
     finally:
         spec_path.unlink()
 
@@ -127,7 +124,7 @@ def test_load_spec_file_loads_yaml_successfully():
 
     try:
         result = load_spec_file(str(spec_path))
-        
+
         assert result is not None
         assert isinstance(result, dict)
         assert result["version"] == 1.0  # YAML parses 1.0 as float
