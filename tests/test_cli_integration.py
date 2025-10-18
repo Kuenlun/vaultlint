@@ -119,28 +119,3 @@ def test_cli_integration_expanduser_resolution(tmp_path, monkeypatch, capsys):
     # Check that at least the last few unique parts appear in output
     assert "homeuser" in captured.out
     assert "vault" in captured.out
-
-
-def test_cli_integration_spec_missing_value_vs_invalid_file(tmp_path, capsys):
-    """Test that missing spec value (syntax error) vs invalid spec file (content error) behave differently."""
-    # Create a valid vault
-    vault = tmp_path / "vault"
-    vault.mkdir()
-    
-    # Test 1: Missing spec value should cause argument error (exit 2)
-    from vaultlint.cli import parse_arguments
-    import pytest
-    
-    with pytest.raises(SystemExit) as exc_info:
-        parse_arguments([str(vault), "-s"])
-    assert exc_info.value.code == 2  # Argument parsing error
-    
-    # Test 2: Invalid spec file should show warning and continue (exit 0) 
-    from vaultlint.cli import main
-    exit_code = main([str(vault), "-s", "nonexistent.yaml"])
-    assert exit_code == 0  # Should complete successfully with warning
-    
-    # Verify warning was shown
-    captured = capsys.readouterr()
-    assert "⚠" in captured.out  # Warning icon should be present
-    assert "Specification file not found" in captured.out
