@@ -38,12 +38,12 @@ jobs:
         shell: bash
         run: |
           python -m black --check --diff --color src tests
-          echo "✅ Code formatting is perfect!"
+          echo "SUCCESS: Code formatting is perfect!"
       - name: Check import sorting with isort
         shell: bash
         run: |
           python -m isort --check-only --diff src tests
-          echo "✅ Import sorting is perfect!"
+          echo "SUCCESS: Import sorting is perfect!"
       - name: Lint with flake8
         shell: bash
         run: |
@@ -82,24 +82,24 @@ jobs:
         shell: bash
         run: |
           python -m pytest -v --junitxml=pytest-junit.xml --tb=short
-          echo "✅ Tests completed successfully!"
+          echo "SUCCESS: Tests completed successfully!"
       - name: Clean XML report for better compatibility
         if: always() && hashFiles('pytest-junit.xml') != ''
         shell: bash
         run: |
-          echo "🧹 Cleaning JUnit XML for better GitHub Actions compatibility..."
+          echo "INFO: Cleaning JUnit XML for better GitHub Actions compatibility..."
           python clean-junit-xml.py
           if [ -f pytest-junit-clean.xml ]; then
-            echo "✅ XML cleaned successfully"
+            echo "SUCCESS: XML cleaned successfully"
             # Verificar que el archivo limpio no esté vacío
             if [ -s pytest-junit-clean.xml ]; then
-              echo "✅ Clean XML file has content, using it as primary"
+              echo "SUCCESS: Clean XML file has content, using it as primary"
               cp pytest-junit-clean.xml pytest-junit.xml
             else
-              echo "⚠️ Clean XML file is empty, keeping original"
+              echo "WARNING: Clean XML file is empty, keeping original"
             fi
           else
-            echo "⚠️ XML cleaning failed, using original"
+            echo "WARNING: XML cleaning failed, using original"
           fi
           
           # Install xmllint for validation
@@ -107,9 +107,9 @@ jobs:
           
           # Verificar que el XML final sea válido
           if xmllint --noout pytest-junit.xml 2>/dev/null; then
-            echo "✅ Final XML is well-formed"
+            echo "SUCCESS: Final XML is well-formed"
           else
-            echo "⚠️ Final XML has issues, creating minimal fallback"
+            echo "WARNING: Final XML has issues, creating minimal fallback"
             cat > pytest-junit.xml << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <testsuites name="pytest" tests="1" failures="0" errors="0" skipped="0" time="0.001">
@@ -120,31 +120,31 @@ jobs:
               </testsuite>
           </testsuites>
           EOF
-            echo "✅ Created fallback XML"
+            echo "SUCCESS: Created fallback XML"
           fi
       - name: Verify test report exists
         if: always()
         shell: bash
         run: |
           if [ -f pytest-junit.xml ]; then
-            echo "✅ JUnit XML report generated successfully"
+            echo "SUCCESS: JUnit XML report generated successfully"
             file_size=$(stat -c%s pytest-junit.xml 2>/dev/null || stat -f%z pytest-junit.xml 2>/dev/null || wc -c < pytest-junit.xml)
             echo "File size: $file_size bytes"
             if [ "$file_size" -gt 0 ]; then
-              echo "✅ File has content"
+              echo "SUCCESS: File has content"
               echo "First line:"
               head -n 1 pytest-junit.xml
               echo "XML validation:"
               if command -v xmllint >/dev/null 2>&1; then
-                xmllint --noout pytest-junit.xml && echo "✅ XML is well-formed" || echo "⚠️ XML validation failed"
+                xmllint --noout pytest-junit.xml && echo "SUCCESS: XML is well-formed" || echo "WARNING: XML validation failed"
               else
                 echo "xmllint not available, skipping validation"
               fi
             else
-              echo "❌ File is empty"
+              echo "ERROR: File is empty"
             fi
           else
-            echo "❌ JUnit XML report not found"
+            echo "ERROR: JUnit XML report not found"
             echo "Available files:"
             ls -la
           fi

@@ -22,7 +22,7 @@ def clean_junit_xml(input_file="pytest-junit.xml", output_file="pytest-junit-cle
     output_path = Path(output_file)
     
     if not input_path.exists():
-        print(f"❌ Input file {input_file} not found")
+        print(f"ERROR: Input file {input_file} not found")
         return False
     
     try:
@@ -122,12 +122,12 @@ def clean_junit_xml(input_file="pytest-junit.xml", output_file="pytest-junit-cle
             tree = ET.ElementTree(root)
             tree.write(output_path, encoding='utf-8', xml_declaration=True, method='xml')
             
-            print(f"✅ Successfully cleaned {input_file} -> {output_file}")
+            print(f"SUCCESS: Successfully cleaned {input_file} -> {output_file}")
             return True
             
         except ET.ParseError as e:
-            print(f"⚠️ XML parsing error after cleaning: {e}")
-            print(f"⚠️ First 500 chars of problematic content: {cleaned_content[:500]}")
+            print(f"WARNING: XML parsing error after cleaning: {e}")
+            print(f"WARNING: First 500 chars of problematic content: {cleaned_content[:500]}")
             
             # Create a minimal valid XML structure as fallback
             fallback_xml = '''<?xml version="1.0" encoding="UTF-8"?>
@@ -144,11 +144,11 @@ def clean_junit_xml(input_file="pytest-junit.xml", output_file="pytest-junit-cle
             
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(fallback_xml)
-            print(f"✅ Created fallback XML at {output_file}")
+            print(f"SUCCESS: Created fallback XML at {output_file}")
             return True
             
     except Exception as e:
-        print(f"❌ Error cleaning XML file: {e}")
+        print(f"ERROR: Error cleaning XML file: {e}")
         
         # Create a minimal valid XML structure as ultimate fallback
         try:
@@ -166,7 +166,7 @@ def clean_junit_xml(input_file="pytest-junit.xml", output_file="pytest-junit-cle
             
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(fallback_xml)
-            print(f"✅ Created emergency fallback XML at {output_file}")
+            print(f"SUCCESS: Created emergency fallback XML at {output_file}")
             return True
         except:
             return False
