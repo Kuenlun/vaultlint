@@ -1,11 +1,11 @@
 """Tests for LintContext dataclass functionality."""
 
-import pytest
-from pathlib import Path
 from dataclasses import FrozenInstanceError
+from pathlib import Path
+
+import pytest
 
 from vaultlint.cli import LintContext
-
 
 # ---------- LintContext creation and basic behavior ----------
 

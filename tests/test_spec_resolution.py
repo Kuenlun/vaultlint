@@ -4,7 +4,6 @@ import logging
 
 from vaultlint.cli import resolve_spec_file
 
-
 # ---------- Specification file resolution ----------
 
 
@@ -28,7 +27,7 @@ def test_resolve_spec_file_explicit_missing(tmp_path, capsys):
     nonexistent = tmp_path / "missing.yaml"
     result = resolve_spec_file(vault_path, nonexistent)
     assert result is None
-    
+
     # Check Rich output shows warning (not error) - linter behavior
     captured = capsys.readouterr()
     assert "Specification file not found" in captured.out

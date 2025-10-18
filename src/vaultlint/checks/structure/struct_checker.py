@@ -1,9 +1,10 @@
 """Example basic vault structure check."""
 
-from pathlib import Path
 import logging
-import yaml
+from pathlib import Path
 from typing import TYPE_CHECKING
+
+import yaml
 
 if TYPE_CHECKING:
     from vaultlint.cli import LintContext

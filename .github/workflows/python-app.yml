@@ -28,12 +28,22 @@ jobs:
           check-latest: true
           cache: pip
           cache-dependency-path: pyproject.toml
-      - name: Install lint deps
+      - name: Install lint and format deps
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          python -m pip install flake8
+          python -m pip install flake8 black isort
           if [ -f requirements-dev.txt ]; then python -m pip install -r requirements-dev.txt; fi
+      - name: Check code formatting with Black
+        shell: bash
+        run: |
+          python -m black --check --diff --color src tests
+          echo "✅ Code formatting is perfect!"
+      - name: Check import sorting with isort
+        shell: bash
+        run: |
+          python -m isort --check-only --diff src tests
+          echo "✅ Import sorting is perfect!"
       - name: Lint with flake8
         shell: bash
         run: |
@@ -67,12 +77,14 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install pytest
+          python -m pip install pytest pytest-cov
           if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
           python -m pip install -e .
-      - name: Run tests
+      - name: Run tests with coverage
         shell: bash
-        run: python -m pytest -q --junitxml=pytest-junit.xml
+        run: |
+          python -m pytest -q --junitxml=pytest-junit.xml --cov=src/vaultlint --cov-fail-under=100 --cov-report=term-missing
+          echo "✅ 100% CODE COVERAGE ACHIEVED!"
       - name: Publish test report
         if: always()
         uses: mikepenz/action-junit-report@v4
