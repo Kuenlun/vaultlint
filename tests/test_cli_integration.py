@@ -61,7 +61,7 @@ def test_cli_integration_keyboard_interrupt(monkeypatch, caplog, tmp_path):
     """Test main() integration handles KeyboardInterrupt with exit code 130."""
     caplog.set_level(logging.INFO, logger="vaultlint.cli")
 
-    def raise_kbi(_path, _spec=None):  # Updated to match new signature
+    def raise_kbi(path, spec=None):
         raise KeyboardInterrupt
 
     monkeypatch.setattr("vaultlint.cli.run", raise_kbi)
