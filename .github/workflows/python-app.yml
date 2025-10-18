@@ -81,16 +81,67 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          python -m pytest -q --junitxml=pytest-junit.xml
+          python -m pytest -v --junitxml=pytest-junit.xml --tb=short
           echo "✅ Tests completed successfully!"
-      - name: Publish test report
+      - name: Clean XML report for better compatibility
+        if: always() && hashFiles('pytest-junit.xml') != ''
+        shell: bash
+        run: |
+          python clean-junit-xml.py
+          if [ -f pytest-junit-clean.xml ]; then
+            echo "✅ XML cleaned successfully"
+            # Usar el archivo limpio como principal
+            cp pytest-junit-clean.xml pytest-junit.xml
+          else
+            echo "⚠️ XML cleaning failed, using original"
+          fi
+      - name: Verify test report exists
         if: always()
-        uses: mikepenz/action-junit-report@v4
+        shell: bash
+        run: |
+          if [ -f pytest-junit.xml ]; then
+            echo "✅ JUnit XML report generated successfully"
+            file_size=$(stat -c%s pytest-junit.xml 2>/dev/null || stat -f%z pytest-junit.xml 2>/dev/null || wc -c < pytest-junit.xml)
+            echo "File size: $file_size bytes"
+            if [ "$file_size" -gt 0 ]; then
+              echo "✅ File has content"
+              echo "First line:"
+              head -n 1 pytest-junit.xml
+              echo "XML validation:"
+              if command -v xmllint >/dev/null 2>&1; then
+                xmllint --noout pytest-junit.xml && echo "✅ XML is well-formed" || echo "⚠️ XML validation failed"
+              else
+                echo "xmllint not available, skipping validation"
+              fi
+            else
+              echo "❌ File is empty"
+            fi
+          else
+            echo "❌ JUnit XML report not found"
+            echo "Available files:"
+            ls -la
+          fi
+      - name: Publish test report
+        if: always() && hashFiles('pytest-junit.xml') != ''
+        uses: mikepenz/action-junit-report@v5
         with:
           report_paths: pytest-junit.xml
-          check_name: Test Report
+          check_name: Test Report (${{ matrix.os }}, Python ${{ matrix.python-version }})
           detailed_summary: true
           include_passed: true
+          fail_on_failure: false
+          require_tests: false
+          job_summary: true
+      - name: Alternative test results upload
+        if: failure() || hashFiles('pytest-junit.xml') == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-fallback-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            pytest-junit.xml
+            test-results-*.xml
+            *.xml
+          if-no-files-found: ignore
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
