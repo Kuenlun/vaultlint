@@ -348,7 +348,10 @@ def test_resolve_path_safely_direct_success():
         # Verify success
         assert result is not None
         assert result.exists()
-        assert result == nested  # Should resolve to the actual directory
+        # Compare resolved paths to handle system differences (like short names on Windows)
+        assert (
+            result.resolve() == nested.resolve()
+        )  # Should resolve to the same directory
 
 
 def test_main_keyboard_interrupt_exact_line_306(tmp_path, monkeypatch, capsys):
