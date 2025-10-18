@@ -21,7 +21,7 @@ def test_resolve_spec_file_explicit_exists(tmp_path):
 
 
 def test_resolve_spec_file_explicit_missing(tmp_path, capsys):
-    """Test resolve_spec_file with explicit spec that doesn't exist."""
+    """Test resolve_spec_file with explicit spec that doesn't exist shows warning."""
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
 
@@ -29,9 +29,9 @@ def test_resolve_spec_file_explicit_missing(tmp_path, capsys):
     result = resolve_spec_file(vault_path, nonexistent)
     assert result is None
     
-    # Check Rich output instead of logs
+    # Check Rich output shows warning (not error) - linter behavior
     captured = capsys.readouterr()
-    assert "Could not resolve specified spec file" in captured.out
+    assert "Specification file not found" in captured.out
 
 
 def test_resolve_spec_file_default_in_vault(tmp_path):

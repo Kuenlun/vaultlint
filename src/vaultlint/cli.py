@@ -39,6 +39,32 @@ FALLBACK_VERSION = "0.0.0+local"
 LOG = logging.getLogger("vaultlint.cli")
 
 
+class RichArgumentParser(argparse.ArgumentParser):
+    """Custom ArgumentParser that uses rich formatting for error messages."""
+
+    def error(self, message: str) -> None:
+        """Override error method to use rich formatting."""
+        from .output import output
+
+        # Transform the message to be more user-friendly
+        if "required:" in message:
+            if "path" in message:
+                friendly_message = "Missing required argument 'path'"
+            else:
+                friendly_message = message.replace(
+                    "the following arguments are required: ",
+                    "Missing required argument: ",
+                )
+        elif "unrecognized arguments:" in message:
+            args = message.replace("unrecognized arguments: ", "")
+            friendly_message = f"Unrecognized argument: {args}"
+        else:
+            friendly_message = message.capitalize()
+
+        output.print_usage_error(self.prog, friendly_message)
+        self.exit(2)
+
+
 @dataclass(frozen=True)
 class LintContext:
     """Context object containing all configuration for linting operations."""
@@ -54,7 +80,7 @@ def _get_platform_access_check() -> int:
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse and return command-line arguments."""
-    parser = argparse.ArgumentParser(
+    parser = RichArgumentParser(
         prog="vaultlint",
         description=(
             "A modular linter for Obsidian that validates Markdown, "
@@ -119,11 +145,12 @@ def _configure_logging(verbosity: int) -> None:
             sys.exit(EXIT_VALIDATION_ERROR)
 
 
-def _resolve_path_safely(path: Path) -> Path | None:
+def _resolve_path_safely(path: Path, *, use_warnings: bool = False) -> Path | None:
     """Safely resolve a path with proper error handling.
 
     Args:
         path: Path to resolve
+        use_warnings: If True, print warnings instead of errors (for non-critical paths)
 
     Returns:
         Resolved Path, or None if resolution failed
@@ -134,17 +161,37 @@ def _resolve_path_safely(path: Path) -> Path | None:
 
         # Check path length (Windows MAX_PATH is 260, but we'll use a safe limit)
         if os.name == "nt" and len(str(expanded)) > WINDOWS_MAX_SAFE_PATH_LENGTH:
-            output.print_error("Path exceeds maximum safe length", str(path))
+            message = "Path exceeds maximum safe length"
+            if use_warnings:
+                output.print_warning(message, str(path))
+            else:
+                output.print_error(message, str(path))
             return None
 
         # Resolve the path
         return expanded.resolve(strict=True)
 
     except FileNotFoundError:
-        output.print_error("The path does not exist", str(path))
+        message = (
+            "The path does not exist"
+            if not use_warnings
+            else "Specification file not found"
+        )
+        if use_warnings:
+            output.print_warning(message, str(path))
+        else:
+            output.print_error(message, str(path))
         return None
     except (OSError, ValueError) as exc:
-        output.print_error(f"Could not resolve path: {exc}", str(path))
+        message = (
+            f"Could not resolve path: {exc}"
+            if not use_warnings
+            else f"Could not resolve specification file: {exc}"
+        )
+        if use_warnings:
+            output.print_warning(message, str(path))
+        else:
+            output.print_error(message, str(path))
         return None
 
 
@@ -175,12 +222,12 @@ def validate_vault_path(path: Path) -> bool:
 
 
 def resolve_spec_file(vault_path: Path, spec_arg: Path | None = None) -> Path | None:
-    """Resolve the specification file path.
+    """Resolve the specification file path with linter-appropriate error handling.
 
     Priority:
-    1. Explicit --spec argument
-    2. vspec.yaml in vault root
-    3. None (no spec file found)
+    1. Explicit --spec argument (warnings if not found - linter continues)
+    2. vspec.yaml in vault root (silent if not found - this is normal)
+    3. None (no spec file found - completely normal)
 
     Args:
         vault_path: Path to the vault directory (should already be resolved)
@@ -191,19 +238,15 @@ def resolve_spec_file(vault_path: Path, spec_arg: Path | None = None) -> Path | 
     """
     # First priority: explicit argument
     if spec_arg:
-        resolved_spec = _resolve_path_safely(spec_arg)
-        if resolved_spec is not None:
-            return resolved_spec
-        else:
-            output.print_error("Could not resolve specified spec file", str(spec_arg))
-            return None
+        resolved_spec = _resolve_path_safely(spec_arg, use_warnings=True)
+        return resolved_spec  # Returns None with warning if failed
 
     # Second priority: vspec.yaml in vault root
     default_spec = vault_path / "vspec.yaml"
     if default_spec.exists():
         return default_spec.resolve()
 
-    # No spec file found - this is normal, not an error
+    # No spec file found - this is completely normal, not even a warning
     return None
 
 
@@ -211,7 +254,7 @@ def run(vault_path: Path, spec_path: Path | None = None) -> int:
     """Core runner: validate path and dispatch linter."""
     # Start timing
     output.start_timing()
-    
+
     if not validate_vault_path(vault_path):
         return EXIT_VALIDATION_ERROR
 
