@@ -2,17 +2,18 @@
 
 import logging
 from pathlib import Path
+
 import pytest
 
-from vaultlint.cli import LintContext
 from vaultlint.checks.check_manager import check_manager
-
+from vaultlint.cli import LintContext
 
 # ---------- Core orchestration behavior ----------
 
 
 def test_check_manager_propagates_struct_checker_success(monkeypatch, capsys):
     """Test check_manager returns True when struct_checker succeeds."""
+
     # Mock struct_checker to return success
     def mock_struct_checker(context):
         return True
@@ -32,6 +33,7 @@ def test_check_manager_propagates_struct_checker_success(monkeypatch, capsys):
 
 def test_check_manager_propagates_struct_checker_failure(monkeypatch, capsys):
     """Test check_manager returns False when struct_checker fails."""
+
     # Mock struct_checker to return failure
     def mock_struct_checker(context):
         return False
@@ -100,6 +102,7 @@ def test_check_manager_propagates_exceptions_from_struct_checker(monkeypatch):
 
 def test_check_manager_shows_vault_path_in_summary(monkeypatch, capsys):
     """Test check_manager shows the vault path in the summary."""
+
     def mock_struct_checker(context):
         return True
 

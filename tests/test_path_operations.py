@@ -2,14 +2,14 @@
 
 import os
 from pathlib import Path
+
 import pytest
 
 from vaultlint.cli import (
+    WINDOWS_MAX_SAFE_PATH_LENGTH,
     _resolve_path_safely,
     validate_vault_path,
-    WINDOWS_MAX_SAFE_PATH_LENGTH,
 )
-
 
 # ---------- Path resolution functions ----------
 
@@ -199,3 +199,91 @@ def test_path_traversal_behavior_documentation(tmp_path):
     bad_traversal = subdir / ".." / "nonexistent"
     result_bad = validate_vault_path(bad_traversal)
     assert result_bad is False  # Should fail because directory doesn't exist
+
+
+def test_resolve_path_safely_successful_resolution(tmp_path):
+    """Test _resolve_path_safely successful path resolution (covers line 171).
+
+    This test specifically covers the successful path where expanded.resolve(strict=True)
+    executes and returns the resolved path.
+    """
+    # Create a directory with a complex relative path that needs resolution
+    nested_dir = tmp_path / "level1" / "level2"
+    nested_dir.mkdir(parents=True)
+
+    # Create a relative path that will need resolving
+    # Use ".." to make resolve() do actual work
+    complex_path = nested_dir / ".." / "level2"  # Should resolve to nested_dir
+
+    # This should successfully resolve
+    result = _resolve_path_safely(complex_path)
+
+    # Verify it resolved correctly
+    assert result is not None
+    assert result.exists()
+    assert result == nested_dir.resolve()  # Should be the canonical resolved path
+
+
+def test_resolve_path_safely_os_error(tmp_path, monkeypatch, capsys):
+    """Test _resolve_path_safely handles OSError during path resolution (covers lines 190-200).
+
+    This test covers the OSError/ValueError exception handler in _resolve_path_safely.
+    """
+    # Create a valid path first
+    test_dir = tmp_path / "test_dir"
+    test_dir.mkdir()
+
+    # Mock Path.resolve to raise OSError
+    original_resolve = Path.resolve
+
+    def mock_resolve(self, strict=False):
+        if self.name == "test_dir":
+            raise OSError("Mocked filesystem error")
+        return original_resolve(self, strict)
+
+    monkeypatch.setattr(Path, "resolve", mock_resolve)
+
+    # Test with error messages (use_warnings=False)
+    result = _resolve_path_safely(test_dir, use_warnings=False)
+    assert result is None
+
+    captured = capsys.readouterr()
+    assert "Could not resolve path: Mocked filesystem error" in captured.out
+
+    # Test with warning messages (use_warnings=True)
+    result_warn = _resolve_path_safely(test_dir, use_warnings=True)
+    assert result_warn is None
+
+    captured_warn = capsys.readouterr()
+    assert (
+        "Could not resolve specification file: Mocked filesystem error"
+        in captured_warn.out
+    )
+
+
+def test_validate_vault_path_os_error_on_iterdir(tmp_path, monkeypatch, capsys):
+    """Test validate_vault_path handles OSError during iterdir (covers lines 220-222).
+
+    This test covers the OSError exception handler in validate_vault_path
+    when trying to list directory contents.
+    """
+    # Create a valid directory
+    test_dir = tmp_path / "test_vault"
+    test_dir.mkdir()
+
+    # Mock iterdir to raise OSError
+    original_iterdir = Path.iterdir
+
+    def mock_iterdir(self):
+        if self.name == "test_vault":
+            raise OSError("Mocked directory access error")
+        return original_iterdir(self)
+
+    monkeypatch.setattr(Path, "iterdir", mock_iterdir)
+
+    # Should handle the OSError and return False
+    result = validate_vault_path(test_dir)
+    assert result is False
+
+    captured = capsys.readouterr()
+    assert "Could not access directory: Mocked directory access error" in captured.out

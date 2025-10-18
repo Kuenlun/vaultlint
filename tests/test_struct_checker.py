@@ -1,12 +1,12 @@
 """Tests for struct_checker functionality."""
 
 import tempfile
-from pathlib import Path
 from contextlib import contextmanager
+from pathlib import Path
 from unittest.mock import patch
 
+from vaultlint.checks.structure.struct_checker import load_spec_file, struct_checker
 from vaultlint.cli import LintContext
-from vaultlint.checks.structure.struct_checker import struct_checker, load_spec_file
 
 
 @contextmanager
@@ -117,6 +117,34 @@ def test_load_spec_file_loads_yaml_successfully():
         assert isinstance(result, dict)
         assert result["version"] == 1.0  # YAML parses 1.0 as float
         assert result["name"] == "test"
+
+
+def test_load_spec_file_permission_error():
+    """Test load_spec_file raises PermissionError when file access is denied."""
+    yaml_content = "version: 1.0"
+
+    with temp_yaml_file(yaml_content) as spec_path:
+        with patch(
+            "pathlib.Path.open", side_effect=PermissionError("Permission denied")
+        ):
+            try:
+                load_spec_file(str(spec_path))
+                assert False, "Should have raised PermissionError"
+            except PermissionError as e:
+                assert "Permission denied" in str(e)
+
+
+def test_load_spec_file_io_error():
+    """Test load_spec_file raises IOError during file reading operations."""
+    yaml_content = "version: 1.0"
+
+    with temp_yaml_file(yaml_content) as spec_path:
+        with patch("pathlib.Path.open", side_effect=IOError("I/O operation failed")):
+            try:
+                load_spec_file(str(spec_path))
+                assert False, "Should have raised IOError"
+            except IOError as e:
+                assert "I/O operation failed" in str(e)
 
 
 # ---------- Context integration behavior ----------

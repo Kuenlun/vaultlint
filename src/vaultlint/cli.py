@@ -1,12 +1,13 @@
 """Command-line interface for vaultlint."""
 
+import argparse
+import importlib.metadata as im
+import logging
 import os
 import sys
-import logging
-import argparse
 from dataclasses import dataclass
 from pathlib import Path
-import importlib.metadata as im
+
 from .output import output
 
 # Exit codes

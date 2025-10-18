@@ -51,6 +51,16 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# Test XML reports
+pytest-junit.xml
+pytest-junit-clean.xml
+test-junit.xml
+*junit*.xml
+
+# Development scripts for CI debugging
+test-xml-generation.py
+# clean-junit-xml.py is needed for CI workflows
+
 # Translations
 *.mo
 *.pot

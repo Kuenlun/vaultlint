@@ -12,6 +12,15 @@ dependencies = [
 [project.scripts]
 vaultlint = "vaultlint.cli:main"
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
+    "pytest-timeout>=2.4.0",
+    "black>=25.9.0",
+    "isort>=7.0.0"
+]
+
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -21,3 +30,59 @@ where = ["src"]
 
 [tool.setuptools.dynamic]
 version = {attr = "vaultlint.__version__"}
+
+# Configuración de Black (formateo de código)
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # Directorios que queremos excluir
+    \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# Configuración de isort (ordenamiento de imports)
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["vaultlint"]
+
+# Configuración de pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short"
+]
+junit_family = "xunit2"
+junit_logging = "system-out"
+
+# Configuración de coverage
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "tests/*",
+    "*/test_*",
+    "*/conftest.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "LOG = logging.getLogger"
+]

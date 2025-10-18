@@ -1,10 +1,10 @@
 """Tests for CLI argument parsing functionality."""
 
-import pytest
 from pathlib import Path
 
-from vaultlint.cli import parse_arguments
+import pytest
 
+from vaultlint.cli import parse_arguments
 
 # ---------- Argument parsing ----------
 
@@ -77,7 +77,7 @@ def test_parse_arguments_version_flag_without_package(monkeypatch, capsys):
 
 def test_parse_arguments_required_argument_missing_value():
     """Test that any flag requiring a value shows rich formatted error when value is missing.
-    
+
     This test ensures that our RichArgumentParser properly handles argparse's
     built-in validation for missing required values, and that the error
     formatting is consistent across all such arguments.
@@ -86,7 +86,7 @@ def test_parse_arguments_required_argument_missing_value():
     with pytest.raises(SystemExit) as exc_info:
         parse_arguments(["/some/path", "-s"])
     assert exc_info.value.code == 2  # argparse standard exit code for argument errors
-    
+
     # Test long form as well
     with pytest.raises(SystemExit) as exc_info:
         parse_arguments(["/some/path", "--spec"])

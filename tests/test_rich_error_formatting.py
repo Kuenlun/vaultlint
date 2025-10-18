@@ -4,10 +4,12 @@ This module specifically tests the rich formatting aspect of error messages,
 ensuring consistent visual presentation across all CLI error scenarios.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from vaultlint.cli import RichArgumentParser
-from vaultlint.output import output, OutputManager
+from vaultlint.output import OutputManager, output
 
 
 class TestRichArgumentParser:
@@ -87,6 +89,29 @@ class TestRichArgumentParser:
             # Should include the first unrecognized argument
             assert "[red]✗ Error:[/red]" in str(error_call)
             assert "Unrecognized argument:" in str(error_call)
+
+    def test_generic_required_argument_formatting(self):
+        """Test rich formatting for generic required arguments (non-'path').
+
+        This covers the else branch in error handling for any required argument
+        that is not specifically the 'path' argument.
+        """
+        parser = RichArgumentParser(prog="vaultlint", output_manager=OutputManager())
+        parser.add_argument("path", help="Path to vault")
+        parser.add_argument("--required-flag", required=True, help="Some required flag")
+
+        with patch("vaultlint.output.console") as mock_console:
+            with pytest.raises(SystemExit) as exc_info:
+                parser.parse_args(["somepath"])  # Missing required --required-flag
+
+            assert exc_info.value.code == 2
+            assert mock_console.print.call_count == 2
+
+            error_call = mock_console.print.call_args_list[0]
+            # Should use the generic "Missing required argument:" format
+            assert "[red]✗ Error:[/red]" in str(error_call)
+            assert "Missing required argument:" in str(error_call)
+            assert "required-flag" in str(error_call)
 
 
 class TestOutputUsageErrorMethod:
